@@ -1,0 +1,12 @@
+# Build yourself
+yaak/
+
+# MacOS
+.DS_Store
+
+# Default TypeSpec output
+tsp-output/
+dist/
+
+# Dependency directories
+node_modules/
