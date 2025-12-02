@@ -1,0 +1,96 @@
+openapi: 3.1.0
+info:
+  title: SciEdu API
+  version: 1.0.0
+tags:
+  - name: Healthz
+paths:
+  /api/healthz:
+    get:
+      operationId: Healthz_checkHealthz
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Healthz
+components:
+  schemas:
+    NotFound:
+      type: object
+      required:
+        - title
+        - status
+        - type
+        - detail
+      properties:
+        title:
+          type: string
+          enum:
+            - Not Found
+        status:
+          type: number
+          enum:
+            - 404
+        type:
+          type: string
+          enum:
+            - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+        detail:
+          type: string
+    ProblemDetail:
+      type: object
+      required:
+        - title
+        - status
+        - type
+        - detail
+      properties:
+        title:
+          type: string
+          description: The problem's title.
+        status:
+          type: integer
+          description: The problem's status code.
+        type:
+          type: string
+          description: Type indicates the URI that identifies the problem type, we use an MDN URI here.
+        detail:
+          type: string
+          description: The problem's detail.
+      description: Problem represents a problem detail as defined in RFC 7807
+    Unauthorized:
+      type: object
+      required:
+        - title
+        - status
+        - type
+        - detail
+      properties:
+        title:
+          type: string
+          enum:
+            - Unauthorized
+        status:
+          type: number
+          enum:
+            - 401
+        type:
+          type: string
+          enum:
+            - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+        detail:
+          type: string
+    Versions:
+      type: string
+      enum:
+        - 1.0.0
+    uuid:
+      type: string
+      format: uuid
+servers:
+  - url: https://dev.sciedu.sdc.nycu.club
+    description: SciEdu server endpoint
+    variables: {}
