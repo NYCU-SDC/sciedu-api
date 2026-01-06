@@ -27,7 +27,7 @@ model CreateChatCompletionRequest {
   @minItems(1)
   messages: ChatMessage[];
 
-  @doc("Whether to stream the response. Must be true for this user story.")
+  @doc("Whether to stream the response using Server-Sent Events (SSE). When true, the response is streamed; when false, a complete response is returned.")
   stream?: boolean = true;
 }
 
@@ -43,7 +43,6 @@ model ChatCompletionChunk {
 @tag("Chat")
 @route("/chat")
 namespace Completions {
-  // @summary("Stream Chat Completion")
   @doc("Generates a response based on the full conversation history provided. Returns a Server-Sent Events (SSE) stream.")
   @post
   @route("/completions")
