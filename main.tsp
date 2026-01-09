@@ -1,7 +1,9 @@
 import "@typespec/http";
 import "@typespec/versioning";
 import "./service/healthz.tsp";
-import "./service/chat.tsp"; 
+import "./service/auth.tsp";
+import "./service/users.tsp";
+import "./service/questions.tsp";
 
 using Http;
 using Versioning;
@@ -58,4 +60,13 @@ model NotFound extends ProblemDetail {
   title: "Not Found";
   status: 404;
   type: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404";
+  detail: string;
+}
+
+@error
+model Conflict {
+  title: "Conflict";
+  status: 409;
+  type: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409";
+  detail: string;
 }
