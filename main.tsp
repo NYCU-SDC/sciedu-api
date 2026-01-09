@@ -4,6 +4,7 @@ import "./service/healthz.tsp";
 import "./service/auth.tsp";
 import "./service/users.tsp";
 import "./service/questions.tsp";
+import "./service/chat.tsp";
 
 using Http;
 using Versioning;
