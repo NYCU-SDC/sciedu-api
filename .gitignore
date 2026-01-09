@@ -1,12 +1,36 @@
-# Build yourself
+# Yaak Collections (Generated)
 yaak/
 
-# MacOS
-.DS_Store
-
-# Default TypeSpec output
+# TypeSpec Output (Generated)
 tsp-output/
 dist/
 
 # Dependency directories
 node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+.cache/
