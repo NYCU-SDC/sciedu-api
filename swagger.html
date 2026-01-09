@@ -4,7 +4,7 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="SciEdu API" />
-        <title>Core System API</title>
+        <title>SciEdu API</title>
         <link
             rel="stylesheet"
             href="https://unpkg.com/swagger-ui-dist@latest/swagger-ui.css"
@@ -25,21 +25,29 @@
             tt {
                 font-family: "FiraCode", monospace !important;
             }
-        </style>
-    </head>
-    <body>
-        <div
-            style="
+
+            .header-nav {
                 padding: 20px;
                 background-color: #f5f5f5;
                 border-bottom: 1px solid #ddd;
-            "
-        >
-            <a
-                href="redocly/"
-                style="text-decoration: none; color: #0066cc; font-weight: 700"
-                >View Redocly Documentation</a
-            >
+            }
+
+            .nav-link {
+                text-decoration: none;
+                color: #0066cc;
+                font-weight: 700;
+            }
+
+            .nav-link:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header-nav">
+            <a href="redocly/" class="nav-link">
+                View Redocly Documentation
+                </a>
         </div>
         <div id="swagger-ui"></div>
         <script
