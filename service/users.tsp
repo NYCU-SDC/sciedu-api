@@ -58,10 +58,14 @@ interface Users {
   @doc("Get information of the currently authenticated user")
   @get
   @route("/me")
-  getMe(): {
-    @statusCode statusCode: 200;
-    @body user: User;
-  } | Unauthorized | ProblemDetail;
+  getMe():
+    | {
+        @statusCode statusCode: 200;
+        @body user: User;
+      }
+    | Unauthorized
+    | NotFound
+    | ProblemDetail;
 
   // [Added in Phase 1] Allows for quick user seeding
   @doc("Create a user (for Development/Seeding purposes)")
@@ -69,5 +73,5 @@ interface Users {
   create(@body body: CreateUserRequest): {
     @statusCode statusCode: 201;
     @body user: User;
-  } | ProblemDetail;
+  } | Conflict | ProblemDetail;
 }

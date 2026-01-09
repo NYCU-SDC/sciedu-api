@@ -11,28 +11,12 @@ namespace SciEdu.Auth;
 // -----------------------------------------------------------------------------
 
 /**
- * Request payload for Google Login
- */
-model GoogleLoginRequest {
-  @doc("Google OAuth2 Authorization Code")
-  code: string;
-
-  @doc("The redirect URI used in the initial authorization request")
-  redirectUri?: string;
-}
-
-/**
  * [Added in Phase 1] Login payload for development purposes
  */
 model DevLoginRequest {
   @doc("The email to simulate login (must already exist in the Users table)")
   @format("email")
   email: string;
-}
-
-model RefreshTokenRequest {
-  @doc("The persistent refresh token used to obtain a new access token")
-  refreshToken: string;
 }
 
 model AuthToken {
@@ -42,11 +26,8 @@ model AuthToken {
   @doc("The long-lived token for refreshing the access token")
   refreshToken: string;
 
-  @doc("Token expiration time in seconds")
-  expiresIn: integer;
-
-  @doc("The type of token issued")
-  tokenType: "Bearer";
+  @doc("Token expiration time (Unix timestamp in seconds)")
+  expirationTime: int64;
 }
 
 // -----------------------------------------------------------------------------
@@ -56,14 +37,6 @@ model AuthToken {
 @tag("Auth")
 @route("/auth")
 interface Auth {
-  //   @doc("Login using Google OAuth Code")
-  //   @post
-  //   @route("/google")
-  //   loginWithGoogle(@body body: GoogleLoginRequest): {
-  //     @statusCode statusCode: 200;
-  //     @body body: AuthToken;
-  //   } | ProblemDetail;
-
   /**
    * [Added in Phase 1] Backdoor for development
    * Bypasses OAuth and issues tokens directly based on email.
@@ -78,8 +51,8 @@ interface Auth {
 
   @doc("Refresh the Access Token")
   @post
-  @route("/refresh")
-  refresh(@body body: RefreshTokenRequest): {
+  @route("/refreshToken/{refreshToken}")
+  refresh(@path refreshToken: string): {
     @statusCode statusCode: 200;
     @body token: AuthToken;
   } | Unauthorized | ProblemDetail;

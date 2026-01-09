@@ -31,6 +31,8 @@ model Option {
   label: string;
 
   @doc("Option content")
+  @minLength(1)
+  @maxLength(1024)
   content: string;
 }
 
@@ -45,6 +47,8 @@ model Question {
   type: QuestionType;
 
   @doc("Question content/description")
+  @minLength(1)
+  @maxLength(2000)
   content: string;
 
   @doc("List of options (only populated when type is CHOICE)")
@@ -59,11 +63,20 @@ model CreateUpdateQuestionRequest {
   type: QuestionType;
 
   @doc("Question content")
+  @minLength(1)
+  @maxLength(2000)
   content: string;
 
   @doc("List of options. For CHOICE type, this field is required and cannot be empty.")
   options?: {
+    @doc("Option label, e.g., A, B, C")
+    @minLength(1)
+    @maxLength(5)
     label: string;
+
+    @doc("Option content")
+    @minLength(1)
+    @maxLength(1024)
     content: string;
   }[];
 }
@@ -72,20 +85,20 @@ model CreateUpdateQuestionRequest {
  * Answer submitted by a student (maps to questions_users_answers table)
  */
 model Answer {
-  @doc("Answer ID")
-  id: integer;
+  @doc("回答 ID")
+  id: uuid;
 
-  @doc("User ID of the respondent")
-  userId: integer; // Kept as it's defined in the schema, though viewing requirements may vary
+  @doc("題目 ID")
+  questionId: uuid;
 
-  @doc("Question ID")
-  questionId: integer;
-
-  @doc("Selected option ID (for CHOICE type only)")
-  selectedOptionId?: integer;
+  @doc("選擇的選項 ID")
+  selectedOptionId?: uuid;
 
   @doc("Textual answer (for TEXT type only)")
   textAnswer?: string;
+
+  @doc("回答建立時間")
+  createdAt: utcDateTime;
 }
 
 /**
@@ -96,6 +109,8 @@ model SubmitAnswerRequest {
   selectedOptionId?: integer;
 
   @doc("Textual answer (if it is a text-based question)")
+  @minLength(1)
+  @maxLength(2000)
   textAnswer?: string;
 }
 
@@ -130,7 +145,7 @@ interface Questions {
 
   @doc("Delete a question")
   @delete
-  delete(@path id: integer): {
+  delete(@path id: uuid): {
     @statusCode statusCode: 204;
   } | NotFound | ProblemDetail;
 
@@ -141,13 +156,17 @@ interface Questions {
   @doc("Get all answers for a specific question (for Experimenter view)")
   @route("/{id}/answers")
   @get
-  listAnswers(@path id: integer): Answer[] | NotFound | ProblemDetail;
+  listAnswers(@path id: uuid): Answer[] | NotFound | ProblemDetail;
 
   @doc("Submit an answer for a specific question")
   @route("/{id}/answers")
   @post
-  submitAnswer(@path id: integer, @body body: SubmitAnswerRequest): {
-    @statusCode statusCode: 201;
-    @body body: Answer;
-  } | NotFound | ProblemDetail;
+  submitAnswer(@path id: uuid, @body body: SubmitAnswerRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body answer: Answer;
+      }
+    | Conflict
+    | NotFound
+    | ProblemDetail;
 }
