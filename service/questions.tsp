@@ -23,7 +23,7 @@ enum QuestionType {
  */
 model Option {
   @doc("Option ID")
-  id: integer;
+  id: uuid;
 
   @doc("Option label, e.g., A, B, C")
   @minLength(1)
@@ -39,7 +39,7 @@ model Option {
  */
 model Question {
   @doc("Question ID")
-  id: integer;
+  id: uuid;
 
   @doc("Question type")
   type: QuestionType;

@@ -73,7 +73,7 @@ interface Auth {
   @route("/dev/login")
   devLogin(@body body: DevLoginRequest): {
     @statusCode statusCode: 200;
-    @body body: AuthToken;
+    @body token: AuthToken;
   } | NotFound | ProblemDetail;
 
   @doc("Refresh the Access Token")
@@ -81,6 +81,6 @@ interface Auth {
   @route("/refresh")
   refresh(@body body: RefreshTokenRequest): {
     @statusCode statusCode: 200;
-    @body body: AuthToken;
+    @body token: AuthToken;
   } | Unauthorized | ProblemDetail;
 }

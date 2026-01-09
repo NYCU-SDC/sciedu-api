@@ -17,8 +17,8 @@ enum UserRole {
 }
 
 model User {
-  @doc("User ID")
-  id: integer;
+  @doc("The user's unique identifier.")
+  id: uuid;
 
   @doc("Email address")
   email: string;
@@ -29,8 +29,8 @@ model User {
   @doc("User avatar URL")
   avatarUrl?: string;
 
-  @doc("System role")
-  role: UserRole;
+  @doc("Global roles of the user.")
+  roles: UserRole[];
 }
 
 // [Added in Phase 1] Payload for creating a user
@@ -42,8 +42,8 @@ model CreateUserRequest {
   @doc("Display name")
   name: string;
 
-  @doc("System role")
-  role: UserRole;
+  @doc("System roles")
+  roles: UserRole[];
 
   // Phase 1 does not require a password as we simulate Google Login (Trust Email)
 }
@@ -58,13 +58,16 @@ interface Users {
   @doc("Get information of the currently authenticated user")
   @get
   @route("/me")
-  getMe(): User | Unauthorized | ProblemDetail;
+  getMe(): {
+    @statusCode statusCode: 200;
+    @body user: User;
+  } | Unauthorized | ProblemDetail;
 
   // [Added in Phase 1] Allows for quick user seeding
   @doc("Create a user (for Development/Seeding purposes)")
   @post
   create(@body body: CreateUserRequest): {
     @statusCode statusCode: 201;
-    @body body: User;
+    @body user: User;
   } | ProblemDetail;
 }
