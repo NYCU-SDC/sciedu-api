@@ -4,53 +4,65 @@ info:
   version: 1.0.0
 tags:
   - name: Healthz
-  - name: Chat
+  - name: Auth
+  - name: Users
+  - name: Questions
 paths:
-  /api/chat/completions:
+  /api/auth/dev/login:
     post:
-      operationId: Completions_create
-      description: Generates a response based on the full conversation history provided. Returns a Server-Sent Events (SSE) stream.
+      operationId: Auth_devLogin
+      description: Development Login (Bypasses OAuth, issues token via email directly)
       parameters: []
       responses:
         '200':
           description: The request has succeeded.
-          headers:
-            Cache-Control:
-              required: true
-              schema:
-                type: string
-                enum:
-                  - no-cache
-            Connection:
-              required: true
-              schema:
-                type: string
-                enum:
-                  - keep-alive
-          content:
-            text/event-stream:
-              schema:
-                $ref: '#/components/schemas/Chat.ChatCompletionChunk'
-        '400':
-          description: The server could not understand the request due to invalid syntax.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
-        '401':
-          description: Access is unauthorized.
+                $ref: '#/components/schemas/Auth.AuthToken'
+        default:
+          description: An unexpected error response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Unauthorized'
+                anyOf:
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
       tags:
-        - Chat
+        - Auth
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Chat.CreateChatCompletionRequest'
+              $ref: '#/components/schemas/Auth.DevLoginRequest'
+  /api/auth/refreshToken/{refreshToken}:
+    post:
+      operationId: Auth_refresh
+      description: Refresh the Access Token
+      parameters:
+        - name: refreshToken
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Auth.AuthToken'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Auth
   /api/healthz:
     get:
       operationId: Healthz_checkHealthz
@@ -62,64 +74,305 @@ paths:
           description: The server cannot find the requested resource.
       tags:
         - Healthz
+  /api/questions:
+    get:
+      operationId: Questions_list
+      description: List all questions
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Questions.Question'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+    post:
+      operationId: Questions_create
+      description: Create a new question (including options)
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.Question'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Questions.CreateUpdateQuestionRequest'
+  /api/questions/{id}:
+    get:
+      operationId: Questions_get
+      description: Get details of a single question (including options)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.Question'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+    put:
+      operationId: Questions_update
+      description: Update a question (Full update; replaces existing options)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.Question'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Questions.CreateUpdateQuestionRequest'
+    delete:
+      operationId: Questions_delete
+      description: Delete a question
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+  /api/questions/{id}/answers:
+    get:
+      operationId: Questions_listAnswers
+      description: Get all answers for a specific question (for Experimenter view)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Questions.Answer'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+    post:
+      operationId: Questions_submitAnswer
+      description: Submit an answer for a specific question
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.Answer'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Conflict'
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Questions.SubmitAnswerRequest'
+  /api/users:
+    post:
+      operationId: Users_create
+      description: Create a user (for Development/Seeding purposes)
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Conflict'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Users.CreateUserRequest'
+  /api/users/me:
+    get:
+      operationId: Users_getMe
+      description: Get information of the currently authenticated user
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
 components:
   schemas:
-    Chat.ChatCompletionChunk:
+    Auth.AuthToken:
       type: object
       required:
-        - delta
-        - isFinished
+        - accessToken
+        - refreshToken
+        - expirationTime
       properties:
-        delta:
+        accessToken:
           type: string
-          description: The text delta generated by the model.
-        isFinished:
-          type: boolean
-          description: Indicates if the generation is finished.
-      description: Represents a chunk of the streamed response.
-    Chat.ChatMessage:
-      type: object
-      required:
-        - role
-        - content
-      properties:
-        role:
-          allOf:
-            - $ref: '#/components/schemas/Chat.ChatRole'
-          description: The role of the message sender.
-        content:
+          description: The short-lived JWT for accessing resources
+        refreshToken:
           type: string
-          description: The content of the message.
-      description: A single message in the chat history.
-    Chat.ChatRole:
-      type: string
-      enum:
-        - user
-        - assistant
-        - system
-      description: The role of the message author.
-    Chat.CreateChatCompletionRequest:
+          description: The long-lived token for refreshing the access token
+        expirationTime:
+          type: integer
+          format: int64
+          description: Token expiration time (Unix timestamp in seconds)
+    Auth.DevLoginRequest:
       type: object
       required:
-        - messages
+        - email
       properties:
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/Chat.ChatMessage'
-          minItems: 1
-          description: The history of the conversation, including the latest user message. The client is responsible for maintaining this context.
-        stream:
-          type: boolean
-          description: Whether to stream the response using Server-Sent Events (SSE). When true, the response is streamed; when false, a complete response is returned.
-          default: true
-      description: Request payload for creating a chat completion.
+        email:
+          type: string
+          format: email
+          description: The email to simulate login (must already exist in the Users table)
+      description: '[Added in Phase 1] Login payload for development purposes'
+    Conflict:
+      type: object
+      required:
+        - title
+        - status
+        - type
+        - detail
+      properties:
+        title:
+          type: string
+          enum:
+            - Conflict
+        status:
+          type: number
+          enum:
+            - 409
+        type:
+          type: string
+          enum:
+            - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+        detail:
+          type: string
     NotFound:
       type: object
       required:
         - title
         - status
         - type
+        - detail
       properties:
         title:
           type: string
@@ -133,6 +386,8 @@ components:
           type: string
           enum:
             - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+        detail:
+          type: string
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
     ProblemDetail:
@@ -159,6 +414,134 @@ components:
           type: string
           description: A URI reference that identifies the specific occurrence of the problem.
       description: Problem represents a problem detail as defined in RFC 9457
+    Questions.Answer:
+      type: object
+      required:
+        - id
+        - questionId
+        - createdAt
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: 回答 ID
+        questionId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: 題目 ID
+        selectedOptionId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: 選擇的選項 ID
+        textAnswer:
+          type: string
+          description: Textual answer (for TEXT type only)
+        createdAt:
+          type: string
+          format: date-time
+          description: 回答建立時間
+      description: Answer submitted by a student (maps to questions_users_answers table)
+    Questions.CreateUpdateQuestionRequest:
+      type: object
+      required:
+        - type
+        - content
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/Questions.QuestionType'
+          description: Question type
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Question content
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                minLength: 1
+                maxLength: 5
+                description: Option label, e.g., A, B, C
+              content:
+                type: string
+                minLength: 1
+                maxLength: 1024
+                description: Option content
+            required:
+              - label
+              - content
+          description: List of options. For CHOICE type, this field is required and cannot be empty.
+      description: Payload for creating or updating a question
+    Questions.Option:
+      type: object
+      required:
+        - id
+        - label
+        - content
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Option ID
+        label:
+          type: string
+          minLength: 1
+          maxLength: 5
+          description: Option label, e.g., A, B, C
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Option content
+      description: Option model (maps to options table)
+    Questions.Question:
+      type: object
+      required:
+        - id
+        - type
+        - content
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Question ID
+        type:
+          allOf:
+            - $ref: '#/components/schemas/Questions.QuestionType'
+          description: Question type
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Question content/description
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/Questions.Option'
+          description: List of options (only populated when type is CHOICE)
+      description: Question model (maps to questions table)
+    Questions.QuestionType:
+      type: string
+      enum:
+        - CHOICE
+        - TEXT
+      description: Question types
+    Questions.SubmitAnswerRequest:
+      type: object
+      properties:
+        selectedOptionId:
+          type: integer
+          description: Selected option ID (if it is a choice question)
+        textAnswer:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Textual answer (if it is a text-based question)
+      description: Payload for submitting an answer
     Unauthorized:
       type: object
       required:
@@ -180,6 +563,57 @@ components:
             - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
+    Users.CreateUserRequest:
+      type: object
+      required:
+        - email
+        - name
+        - roles
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address
+        name:
+          type: string
+          description: Display name
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Users.UserRole'
+          description: System roles
+    Users.User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - roles
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: The user's unique identifier.
+        email:
+          type: string
+          description: Email address
+        name:
+          type: string
+          description: Display name
+        avatarUrl:
+          type: string
+          description: User avatar URL
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Users.UserRole'
+          description: Global roles of the user.
+    Users.UserRole:
+      type: string
+      enum:
+        - STUDENT
+        - EXPERIMENTER
+        - ADMIN
     Versions:
       type: string
       enum:
