@@ -31,6 +31,12 @@ model User {
 
   @doc("Global roles of the user.")
   roles: UserRole[];
+
+  @doc("User creation time")
+  createdAt: utcDateTime;
+
+  @doc("User last update time")
+  updatedAt: utcDateTime;
 }
 
 // [Added in Phase 1] Payload for creating a user

@@ -26,8 +26,8 @@ model AuthToken {
   @doc("The long-lived token for refreshing the access token")
   refreshToken: string;
 
-  @doc("Token expiration time (Unix timestamp in seconds)")
-  expirationTime: int64;
+  @doc("Token expiration time")
+  expirationTime: utcDateTime;
 }
 
 // -----------------------------------------------------------------------------
