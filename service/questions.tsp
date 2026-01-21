@@ -27,13 +27,19 @@ model Option {
 
   @doc("Option label, e.g., A, B, C")
   @minLength(1)
-  @maxLength(5)
+  @maxLength(20)
   label: string;
 
   @doc("Option content")
   @minLength(1)
   @maxLength(1024)
   content: string;
+
+  @doc("Option creation time")
+  createdAt: utcDateTime;
+
+  @doc("Option last update time")
+  updatedAt: utcDateTime;
 }
 
 /**
@@ -53,6 +59,12 @@ model Question {
 
   @doc("List of options (only populated when type is CHOICE)")
   options?: Option[];
+
+  @doc("Question creation time")
+  createdAt: utcDateTime;
+
+  @doc("Question last update time")
+  updatedAt: utcDateTime;
 }
 
 /**
@@ -71,7 +83,7 @@ model CreateUpdateQuestionRequest {
   options?: {
     @doc("Option label, e.g., A, B, C")
     @minLength(1)
-    @maxLength(5)
+    @maxLength(20)
     label: string;
 
     @doc("Option content")
@@ -85,20 +97,23 @@ model CreateUpdateQuestionRequest {
  * Answer submitted by a student (maps to questions_users_answers table)
  */
 model Answer {
-  @doc("回答 ID")
+  @doc("Answer ID")
   id: uuid;
 
-  @doc("題目 ID")
+  @doc("Question ID")
   questionId: uuid;
 
-  @doc("選擇的選項 ID")
+  @doc("Selected option ID")
   selectedOptionId?: uuid;
 
   @doc("Textual answer (for TEXT type only)")
   textAnswer?: string;
 
-  @doc("回答建立時間")
+  @doc("Answer creation time")
   createdAt: utcDateTime;
+
+  @doc("Answer last update time")
+  updatedAt: utcDateTime;
 }
 
 /**
