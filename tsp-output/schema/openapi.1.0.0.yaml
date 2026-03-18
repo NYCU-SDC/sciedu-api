@@ -8,6 +8,7 @@ tags:
   - name: Users
   - name: Questions
   - name: Chat
+  - name: Content
 paths:
   /api/auth/dev/login:
     post:
@@ -109,6 +110,234 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Chat.CreateChatCompletionRequest'
+  /api/content/media:
+    post:
+      operationId: Content_createMedia
+      description: |2-
+          Upload a new media file (multipart/form-data).
+          The `content` part carries the raw file bytes.
+          Returns the created MediaContent record with the stored file path.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content.MediaContent'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                content:
+                  description: Raw file bytes to upload
+              required:
+                - content
+  /api/content/media/{id}:
+    get:
+      operationId: Content_streamMedia
+      description: |2-
+          Stream a media file. The response body is the raw binary file stream.
+          The handler is responsible for closing the stream after the response is sent.
+          Do NOT buffer the entire file into memory; use io.Copy to pipe the stream
+          directly to the response writer.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          headers:
+            Content-Length:
+              required: true
+              schema:
+                type: integer
+                format: int64
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+          content:
+            '*/*':
+              schema:
+                contentMediaType: '*/*'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
+  /api/content/text:
+    get:
+      operationId: Content_listText
+      description: List text contents (paginated).
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          description: Number of items per page. Maximum value is 100.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content.PaginatedTextResponse'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
+    post:
+      operationId: Content_createText
+      description: Create a new text content
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content.TextContent'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Content.CreateTextRequest'
+  /api/content/text/batch:
+    post:
+      operationId: Content_batchGetText
+      description: Batch-fetch text contents by a list of IDs. Returns an array of TextContent.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Content.TextContent'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Content.BatchTextRequest'
+  /api/content/text/{id}:
+    get:
+      operationId: Content_getText
+      description: Get a single text content by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content.TextContent'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
+  /api/content/{id}:
+    delete:
+      operationId: Content_delete
+      description: Delete a content item (text or media) by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Unauthorized'
+                  - $ref: '#/components/schemas/NotFound'
+                  - $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Content
   /api/healthz:
     get:
       operationId: Healthz_checkHealthz
@@ -464,6 +693,133 @@ components:
           type: string
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
+    Content.BatchTextRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          minItems: 1
+          maxItems: 100
+          description: List of text content IDs to fetch
+      description: Request body for batch-fetching text contents by ID
+    Content.ContentType:
+      type: string
+      enum:
+        - TEXT
+        - MEDIA
+      description: Content type discriminant
+    Content.CreateTextRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          description: Text body
+      description: Request body for creating a text content
+    Content.MediaContent:
+      type: object
+      required:
+        - id
+        - type
+        - content
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Content ID
+        type:
+          type: string
+          enum:
+            - MEDIA
+          description: Content type — always MEDIA
+        content:
+          type: string
+          description: Stored file path
+      description: A media content item (references a stored file)
+    Content.PaginatedMediaResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Content.MediaContent'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+      description: Paginated list of media contents
+    Content.PaginatedTextResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Content.TextContent'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+      description: Paginated list of text contents
+    Content.TextContent:
+      type: object
+      required:
+        - id
+        - type
+        - content
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Content ID
+        type:
+          type: string
+          enum:
+            - TEXT
+          description: Content type — always TEXT
+        content:
+          type: string
+          description: Text body
+      description: A text content item
     NotFound:
       type: object
       required:
