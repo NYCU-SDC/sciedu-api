@@ -98,7 +98,14 @@ namespace Chats {
       | {
           @statusCode statusCode: 201;
           @body body: {
+            @doc("The user's message that was just sent. Its `id` is the ID of the user's message.")
             message: Message;
+
+            @doc("""
+              The ID of the assistant's reply message, which is pre-created in a `streaming` state.
+              The SSE stream endpoint (`GET /chat/stream/{messageId}`) expects the assistant's message ID — that is this field.
+              The `message.id` in this response is the user's message ID, which cannot be used to open a stream.
+              """)
             replyMessageID: uuid;
           };
         }
