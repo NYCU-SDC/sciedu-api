@@ -98,7 +98,7 @@ model CreateTextRequest {
 interface Content {
   // ── Text ──────────────────────────────────────────────────────────────────
 
-  @doc("List text contents (paginated). pageSize is capped at 100 server-side.")
+  @doc("List text contents (paginated).")
   @get
   @route("/text")
   listText(
