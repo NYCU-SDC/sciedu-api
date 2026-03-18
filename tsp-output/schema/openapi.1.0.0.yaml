@@ -462,6 +462,8 @@ components:
             - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
         detail:
           type: string
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetail'
     NotFound:
       type: object
       required:
@@ -509,7 +511,7 @@ components:
         instance:
           type: string
           description: A URI reference that identifies the specific occurrence of the problem.
-      description: Problem represents a problem detail as defined in RFC 9457
+      description: Problem represents a problem detail as defined in RFC 9457. Backend implementation should use the `summer` package (github.com/NYCU-SDC/summer) for constructing and returning these errors.
     Questions.Answer:
       type: object
       required:
