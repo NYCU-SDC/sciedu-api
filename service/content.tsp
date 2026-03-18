@@ -144,22 +144,6 @@ interface Content {
 
   // ── Media ─────────────────────────────────────────────────────────────────
 
-  @doc("List media contents (paginated). pageSize is capped at 100 server-side.")
-  @get
-  @route("/media")
-  listMedia(
-    @query page?: int32 = 1,
-
-    @doc("Number of items per page. Maximum value is 100.")
-    @query
-    @minValue(1)
-    @maxValue(100)
-    pageSize?: int32 = 20,
-  ): {
-    @statusCode statusCode: 200;
-    @body body: PaginatedMediaResponse;
-  } | Unauthorized | ProblemDetail;
-
   @doc("""
       Stream a media file. The response body is the raw binary file stream.
       The handler is responsible for closing the stream after the response is sent.
