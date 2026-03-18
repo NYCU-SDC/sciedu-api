@@ -5,6 +5,7 @@ import "./service/auth.tsp";
 import "./service/users.tsp";
 import "./service/questions.tsp";
 import "./service/chat.tsp";
+import "./service/content.tsp";
 
 using Http;
 using Versioning;
