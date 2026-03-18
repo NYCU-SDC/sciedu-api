@@ -65,11 +65,41 @@ paths:
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Auth
-  /api/chat/completions:
+  /api/chat:
     post:
-      operationId: Completions_create
-      description: Generates a response based on the full conversation history provided. Returns a Server-Sent Events (SSE) stream.
+      operationId: Chats_create
+      description: Create a new chat session.
       parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chatID:
+                    $ref: '#/components/schemas/uuid'
+                required:
+                  - chatID
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+      tags:
+        - Chat
+  /api/chat/stream/{messageId}:
+    get:
+      operationId: Stream_get
+      description: Stream the assistant reply for a given message using Server-Sent Events. Returns 404 if the messageId does not exist, 400 if the message has no reply pending yet.
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
       responses:
         '200':
           description: The request has succeeded.
@@ -89,7 +119,7 @@ paths:
           content:
             text/event-stream:
               schema:
-                $ref: '#/components/schemas/Chat.ChatCompletionChunk'
+                $ref: '#/components/schemas/Chat.StreamDelta'
         '400':
           description: The server could not understand the request due to invalid syntax.
           content:
@@ -102,6 +132,101 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Unauthorized'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Chat
+  /api/chat/{chatId}/messages:
+    get:
+      operationId: Messages_list
+      description: List all messages in a chat session.
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chat.Message'
+                required:
+                  - messages
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Chat
+    post:
+      operationId: Messages_create
+      description: Send a message to a chat session. Returns the sent message and the ID of the pending reply message.
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    allOf:
+                      - $ref: '#/components/schemas/Chat.Message'
+                    description: The user's message that was just sent. Its `id` is the ID of the user's message.
+                  replyMessageID:
+                    allOf:
+                      - $ref: '#/components/schemas/uuid'
+                    description: |-
+                      The ID of the assistant's reply message, which is pre-created in a `streaming` state.
+                      The SSE stream endpoint (`GET /chat/stream/{messageId}`) expects the assistant's message ID — that is this field.
+                      The `message.id` in this response is the user's message ID, which cannot be used to open a stream.
+                required:
+                  - message
+                  - replyMessageID
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Chat
       requestBody:
@@ -109,7 +234,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Chat.CreateChatCompletionRequest'
+              type: object
+              properties:
+                content:
+                  type: string
+                previousID:
+                  $ref: '#/components/schemas/uuid'
+              required:
+                - content
   /api/content/media:
     post:
       operationId: Content_createMedia
@@ -619,56 +751,61 @@ components:
           format: email
           description: The email to simulate login (must already exist in the Users table)
       description: '[Added in Phase 1] Login payload for development purposes'
-    Chat.ChatCompletionChunk:
+    Chat.Message:
       type: object
       required:
-        - delta
-        - isFinished
-      properties:
-        delta:
-          type: string
-          description: The text delta generated by the model.
-        isFinished:
-          type: boolean
-          description: Indicates if the generation is finished.
-      description: Represents a chunk of the streamed response.
-    Chat.ChatMessage:
-      type: object
-      required:
-        - role
+        - id
         - content
+        - role
+        - status
+        - createdAt
       properties:
-        role:
+        id:
           allOf:
-            - $ref: '#/components/schemas/Chat.ChatRole'
-          description: The role of the message sender.
+            - $ref: '#/components/schemas/uuid'
+          description: Message ID
         content:
           type: string
-          description: The content of the message.
-      description: A single message in the chat history.
-    Chat.ChatRole:
+          description: Message content
+        role:
+          allOf:
+            - $ref: '#/components/schemas/Chat.MessageRole'
+          description: Role of the message author
+        previousID:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: ID of the previous message in the chain
+        status:
+          allOf:
+            - $ref: '#/components/schemas/Chat.MessageStatus'
+          description: Processing status of the message
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the message was created
+      description: A single message in a chat session.
+    Chat.MessageRole:
       type: string
       enum:
         - user
         - assistant
-        - system
       description: The role of the message author.
-    Chat.CreateChatCompletionRequest:
+    Chat.MessageStatus:
+      type: string
+      enum:
+        - streaming
+        - done
+        - error
+      description: The processing status of a message.
+    Chat.StreamDelta:
       type: object
       required:
-        - messages
+        - content
       properties:
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/Chat.ChatMessage'
-          minItems: 1
-          description: The history of the conversation, including the latest user message. The client is responsible for maintaining this context.
-        stream:
-          type: boolean
-          description: Whether to stream the response using Server-Sent Events (SSE). When true, the response is streamed; when false, a complete response is returned.
-          default: true
-      description: Request payload for creating a chat completion.
+        content:
+          type: string
+          description: The streamed content fragment
+      description: A content delta chunk from the SSE stream.
     Conflict:
       type: object
       required:
