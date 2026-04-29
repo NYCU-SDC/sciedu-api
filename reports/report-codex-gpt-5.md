@@ -45,3 +45,33 @@
 - If backend implementation exists in another repo or branch, update the actual handler/service logic to match the new routes and status values.
 - Confirm with frontend whether the response field should remain `createdAt` rather than the informal example spelling `createdAT`.
 - If needed, add explicit examples in TypeSpec/OpenAPI for SSE `event: delta` payloads to make the stream contract clearer for client consumers.
+
+## [2026-04-29 15:15] Task Record
+
+### 🎯 Task Description
+- Adjust the previous chat API work to comply with the updated `AGENTS.md` reporting protocol and create a new local commit.
+
+### 🛠️ Actions Taken
+- Modified file: `reports/report-codex-gpt-5.md`
+- Created directory: `reports/`
+- Moved legacy report file from project root to `reports/report-codex-gpt-5.md`
+- Executed commands:
+- `git status --short --branch`
+- `sed -n '1,520p' AGENTS.md`
+- `find . -maxdepth 2 -type f | sort | rg 'report-.*\\.md|reports/'`
+- `find . -maxdepth 2 -type d | sort`
+- `mkdir -p reports && mv report-codex-gpt-5.md reports/report-codex-gpt-5.md`
+- `sed -n '1,220p' reports/report-codex-gpt-5.md`
+
+### 🔬 Attempted Methods
+- Re-read the updated `AGENTS.md` to identify protocol changes rather than assuming the previous reporting layout was still valid.
+- Applied the required legacy report migration by moving the report into the `reports/` directory.
+- Appended a new task record so the migration itself is documented for future agents.
+
+### ⚠️ Issues & Blockers
+- The updated `AGENTS.md` requires reports to live under `reports/`, so the earlier root-level report location was no longer compliant.
+- `AGENTS.md` and `LLM_INTERACTION_PROTOCOL.md` remain untracked local files and were not included in this commit.
+
+### ⏭️ Next Steps
+- Keep appending future Codex records to `reports/report-codex-gpt-5.md`.
+- If the team wants stricter model naming than `gpt-5`, confirm the exact official model identifier to standardize future report filenames.
