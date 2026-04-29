@@ -18,9 +18,10 @@ enum MessageRole {
 
 @doc("The processing status of a message.")
 enum MessageStatus {
+  Created: "created",
   Streaming: "streaming",
-  Done: "done",
-  Error: "error",
+  Completed: "completed",
+  Failed: "failed",
 }
 
 @doc("A single message in a chat session.")
@@ -69,59 +70,58 @@ namespace Chats {
     @body error: SciEdu.Unauthorized;
   };
 
-  @route("/{chatId}/messages")
-  namespace Messages {
-    @doc("List all messages in a chat session.")
-    @get
-    op list(@path chatId: uuid): {
-      @statusCode statusCode: 200;
-      @body body: {
-        messages: Message[];
-      };
-    } | {
-      @statusCode statusCode: 401;
-      @body error: SciEdu.Unauthorized;
-    } | {
-      @statusCode statusCode: 404;
-      @body error: SciEdu.ProblemDetail;
+  @doc("List all messages in a chat session.")
+  @route("/{chatId}")
+  @get
+  op get(@path chatId: uuid): {
+    @statusCode statusCode: 200;
+    @body body: {
+      messages: Message[];
     };
+  } | {
+    @statusCode statusCode: 401;
+    @body error: SciEdu.Unauthorized;
+  } | {
+    @statusCode statusCode: 404;
+    @body error: SciEdu.ProblemDetail;
+  };
 
-    @doc("Send a message to a chat session. Returns the sent message and the ID of the pending reply message.")
-    @post
-    op create(
-      @path chatId: uuid,
-      @body body: {
-        content: string;
-        previousID?: uuid;
-      },
-    ):
-      | {
-          @statusCode statusCode: 201;
-          @body body: {
-            @doc("The user's message that was just sent. Its `id` is the ID of the user's message.")
-            message: Message;
+  @doc("Send a message to a chat session. Returns the sent message and the ID of the pending reply message.")
+  @route("/{chatId}")
+  @post
+  op createMessage(
+    @path chatId: uuid,
+    @body body: {
+      content: string;
+      previousID?: uuid;
+    },
+  ):
+    | {
+        @statusCode statusCode: 201;
+        @body body: {
+          @doc("The user's message that was just sent. Its `id` is the ID of the user's message.")
+          message: Message;
 
-            @doc("""
-              The ID of the assistant's reply message, which is pre-created in a `streaming` state.
-              The SSE stream endpoint (`GET /chat/stream/{messageId}`) expects the assistant's message ID — that is this field.
-              The `message.id` in this response is the user's message ID, which cannot be used to open a stream.
-              """)
-            replyMessageID: uuid;
-          };
-        }
-      | {
-          @statusCode statusCode: 400;
-          @body error: SciEdu.ProblemDetail;
-        }
-      | {
-          @statusCode statusCode: 401;
-          @body error: SciEdu.Unauthorized;
-        }
-      | {
-          @statusCode statusCode: 404;
-          @body error: SciEdu.ProblemDetail;
+          @doc("""
+            The ID of the assistant's reply message, which is pre-created in a `streaming` state.
+            The SSE stream endpoint (`GET /chat/stream/{messageId}`) expects the assistant's message ID — that is this field.
+            The `message.id` in this response is the user's message ID, which cannot be used to open a stream.
+            """)
+          replyMessageID: uuid;
         };
-  }
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: SciEdu.ProblemDetail;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 404;
+        @body error: SciEdu.ProblemDetail;
+      };
 
   @route("/stream/{messageId}")
   namespace Stream {

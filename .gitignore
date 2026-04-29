@@ -30,6 +30,7 @@ npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+reports/*
 
 # Temporary files
 *.tmp
