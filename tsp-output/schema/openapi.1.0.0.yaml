@@ -140,9 +140,9 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Chat
-  /api/chat/{chatId}/messages:
+  /api/chat/{chatId}:
     get:
-      operationId: Messages_list
+      operationId: Chats_get
       description: List all messages in a chat session.
       parameters:
         - name: chatId
@@ -179,7 +179,7 @@ paths:
       tags:
         - Chat
     post:
-      operationId: Messages_create
+      operationId: Chats_createMessage
       description: Send a message to a chat session. Returns the sent message and the ID of the pending reply message.
       parameters:
         - name: chatId
@@ -793,9 +793,10 @@ components:
     Chat.MessageStatus:
       type: string
       enum:
+        - created
         - streaming
-        - done
-        - error
+        - completed
+        - failed
       description: The processing status of a message.
     Chat.StreamDelta:
       type: object
