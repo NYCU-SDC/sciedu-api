@@ -18,7 +18,6 @@ enum MessageRole {
 
 @doc("The processing status of a message.")
 enum MessageStatus {
-  Created: "created",
   Streaming: "streaming",
   Completed: "completed",
   Failed: "failed",
