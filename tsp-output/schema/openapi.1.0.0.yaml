@@ -793,7 +793,6 @@ components:
     Chat.MessageStatus:
       type: string
       enum:
-        - created
         - streaming
         - completed
         - failed
