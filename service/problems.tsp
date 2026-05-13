@@ -31,6 +31,14 @@ model Unauthorized extends ProblemDetail {
 }
 
 @error
+model Forbidden extends ProblemDetail {
+  title: "Forbidden";
+  status: 403;
+  type: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403";
+  detail: string;
+}
+
+@error
 model NotFound extends ProblemDetail {
   title: "Not Found";
   status: 404;
