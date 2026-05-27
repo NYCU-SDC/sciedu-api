@@ -79,8 +79,11 @@ model Message {
 
 @doc("A content delta chunk from the SSE stream.")
 model StreamDelta {
-  @doc("The streamed content fragment")
-  content: string;
+  @doc("The streamed content fragment. Empty when `isFinished` is true.")
+  delta: string;
+
+  @doc("Whether this chunk marks the end of the assistant reply stream.")
+  isFinished: boolean;
 }
 
 // -----------------------------------------------------------------------------
