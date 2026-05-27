@@ -100,11 +100,11 @@ sequenceDiagram
 
     loop LLM still streaming
         LLM->>BE: SSE delta
-        BE->>FE: event: delta data: {"content":"..."}
+        BE->>FE: data: {"delta":"...","isFinished":false}
     end
 
     LLM->>BE: Stream complete, close SSE
-    BE->>FE: event: done (close SSE)
+    BE->>FE: data: {"delta":"","isFinished":true}
 
     Note over BE: Update message<br/>status → "completed"
 
@@ -137,13 +137,13 @@ sequenceDiagram
 
     loop LLM streaming
         LLM->>BE: SSE delta
-        BE->>FE: event: delta data: {"content":"..."}
+        BE->>FE: data: {"delta":"...","isFinished":false}
     end
 
     Note over FE: Append deltas to<br/>assistant placeholder
 
     LLM->>BE: Stream complete, close SSE
-    BE->>FE: event: done (close SSE)
+    BE->>FE: data: {"delta":"","isFinished":true}
 
     Note over BE: Update reply message<br/>status → "completed"
 
@@ -202,8 +202,8 @@ sequenceDiagram
                 LLM-->>BE: stream
         
             FE->>BE: GET /chat/stream/:streamId
-            BE-->>FE: chunk "data": "Hello world sample stream"
+            BE-->>FE: data: {"delta":"Hello world sample stream","isFinished":false}
         
                 LLM-->>BE: looks
-                BE-->>FE: looks
+                BE-->>FE: data: {"delta":"looks","isFinished":false}
         ```
