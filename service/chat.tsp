@@ -123,13 +123,13 @@ namespace Chats {
     @body error: SciEdu.Unauthorized;
   };
 
-  @doc("Returns chat title and lists all messages in the chat.")
+  @doc("Returns chat and all messages in the chat.")
   @route("/{chatId}")
   @get
   op get(@path chatId: uuid): {
     @statusCode statusCode: 200;
     @body body: {
-      title: string;
+      ...Chat;
       messages: Message[];
     };
   } | {
