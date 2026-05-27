@@ -126,7 +126,7 @@ paths:
   /api/chat/{chatId}:
     get:
       operationId: Chats_get
-      description: List all messages in a chat session.
+      description: Returns chat title and lists all messages in the chat.
       parameters:
         - name: chatId
           in: path
@@ -141,11 +141,14 @@ paths:
               schema:
                 type: object
                 properties:
+                  title:
+                    type: string
                   messages:
                     type: array
                     items:
                       $ref: '#/components/schemas/Chat.Message'
                 required:
+                  - title
                   - messages
         '401':
           description: Access is unauthorized.
