@@ -17,7 +17,7 @@ using Versioning;
 namespace SciEdu;
 
 enum Versions {
-  v1: "0.3.0",
+  v1: "1.0.0",
 }
 
 @format("uuid")
