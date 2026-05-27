@@ -818,11 +818,15 @@ components:
     Chat.StreamDelta:
       type: object
       required:
-        - content
+        - delta
+        - isFinished
       properties:
-        content:
+        delta:
           type: string
-          description: The streamed content fragment
+          description: The streamed content fragment. Empty when `isFinished` is true.
+        isFinished:
+          type: boolean
+          description: Whether this chunk marks the end of the assistant reply stream.
       description: A content delta chunk from the SSE stream.
     Conflict:
       type: object
