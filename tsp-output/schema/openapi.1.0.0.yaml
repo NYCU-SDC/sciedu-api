@@ -4,67 +4,10 @@ info:
   version: 1.0.0
 tags:
   - name: Healthz
-  - name: Auth
-  - name: Users
   - name: Questions
   - name: Chat
   - name: Content
 paths:
-  /api/auth/dev/login:
-    post:
-      operationId: Auth_devLogin
-      description: Development Login (Bypasses OAuth, issues token via email directly)
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Auth.AuthToken'
-        default:
-          description: An unexpected error response.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
-      tags:
-        - Auth
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Auth.DevLoginRequest'
-  /api/auth/refreshToken/{refreshToken}:
-    post:
-      operationId: Auth_refresh
-      description: Refresh the Access Token
-      parameters:
-        - name: refreshToken
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Auth.AuthToken'
-        default:
-          description: An unexpected error response.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
-                  - $ref: '#/components/schemas/ProblemDetail'
-      tags:
-        - Auth
   /api/chat:
     get:
       operationId: Chats_list
@@ -740,86 +683,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Questions.SubmitAnswerRequest'
-  /api/users:
-    post:
-      operationId: Users_create
-      description: Create a user (for Development/Seeding purposes)
-      parameters: []
-      responses:
-        '201':
-          description: The request has succeeded and a new resource has been created as a result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Users.User'
-        default:
-          description: An unexpected error response.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Conflict'
-                  - $ref: '#/components/schemas/ProblemDetail'
-      tags:
-        - Users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Users.CreateUserRequest'
-  /api/users/me:
-    get:
-      operationId: Users_getMe
-      description: Get information of the currently authenticated user
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Users.User'
-        default:
-          description: An unexpected error response.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
-      tags:
-        - Users
 components:
   schemas:
-    Auth.AuthToken:
-      type: object
-      required:
-        - accessToken
-        - refreshToken
-        - expirationTime
-      properties:
-        accessToken:
-          type: string
-          description: The short-lived JWT for accessing resources
-        refreshToken:
-          type: string
-          description: The long-lived token for refreshing the access token
-        expirationTime:
-          type: integer
-          format: int64
-          description: Token expiration time (Unix timestamp in seconds)
-    Auth.DevLoginRequest:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          description: The email to simulate login (must already exist in the Users table)
-      description: '[Added in Phase 1] Login payload for development purposes'
     Chat.Chat:
       type: object
       required:
@@ -1282,57 +1147,6 @@ components:
             - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
-    Users.CreateUserRequest:
-      type: object
-      required:
-        - email
-        - name
-        - roles
-      properties:
-        email:
-          type: string
-          format: email
-          description: Email address
-        name:
-          type: string
-          description: Display name
-        roles:
-          type: array
-          items:
-            $ref: '#/components/schemas/Users.UserRole'
-          description: System roles
-    Users.User:
-      type: object
-      required:
-        - id
-        - email
-        - name
-        - roles
-      properties:
-        id:
-          allOf:
-            - $ref: '#/components/schemas/uuid'
-          description: The user's unique identifier.
-        email:
-          type: string
-          description: Email address
-        name:
-          type: string
-          description: Display name
-        avatarUrl:
-          type: string
-          description: User avatar URL
-        roles:
-          type: array
-          items:
-            $ref: '#/components/schemas/Users.UserRole'
-          description: Global roles of the user.
-    Users.UserRole:
-      type: string
-      enum:
-        - STUDENT
-        - EXPERIMENTER
-        - ADMIN
     Versions:
       type: string
       enum:
@@ -1341,6 +1155,6 @@ components:
       type: string
       format: uuid
 servers:
-  - url: https://dev.sciedu.sdc.nycu.club
+  - url: https://api.dev.sciedu.sdc.nycu.club
     description: SciEdu server endpoint
     variables: {}
