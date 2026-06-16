@@ -7,7 +7,163 @@ tags:
   - name: Questions
   - name: Chat
   - name: Content
+  - name: Auth
 paths:
+  /api/auth/callback:
+    get:
+      operationId: OAuthCallback_callback
+      description: |-
+        Complete the Google OAuth login flow, set session cookies on success, and
+        redirect the client to the originally requested URL.
+      parameters:
+        - name: code
+          in: query
+          required: false
+          description: OAuth authorization code returned by Google.
+          schema:
+            type: string
+          explode: false
+        - name: state
+          in: query
+          required: false
+          description: OAuth state value used to validate the login attempt.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '302':
+          description: Redirection
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+            Set-Cookie:
+              required: true
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Auth
+  /api/auth/logout:
+    post:
+      operationId: Auth_logout
+      description: Revoke the entire refresh token family, clear session cookies, and end the session.
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: false
+          description: Refresh token session cookie to revoke. Missing cookies still result in a cleared session.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          headers:
+            Set-Cookie:
+              required: true
+              schema:
+                type: array
+                items:
+                  type: string
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Auth
+  /api/auth/refresh:
+    post:
+      operationId: Auth_refresh
+      description: |-
+        Rotate the refresh token, set new session cookies, and return updated
+        session expiry metadata.
+      parameters:
+        - name: refresh_token
+          in: cookie
+          required: true
+          description: Refresh token session cookie to rotate.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          headers:
+            Set-Cookie:
+              required: true
+              schema:
+                type: array
+                items:
+                  type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Auth.SessionResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Auth
+  /api/auth/session:
+    get:
+      operationId: Auth_session
+      description: Return metadata for the authenticated session using session cookies.
+      parameters:
+        - name: access_token
+          in: cookie
+          required: true
+          description: Access token session cookie.
+          schema:
+            type: string
+          explode: false
+        - name: refresh_token
+          in: cookie
+          required: true
+          description: Refresh token session cookie.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Auth.SessionResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+      tags:
+        - Auth
   /api/chat:
     get:
       operationId: Chats_list
@@ -518,6 +674,37 @@ paths:
           description: The server cannot find the requested resource.
       tags:
         - Healthz
+  /api/login/oauth/google:
+    get:
+      operationId: OAuthLogin_loginGoogle
+      description: |-
+        Start the Google OAuth login flow and redirect the browser to the OAuth
+        authorization server. The redirect URL is stored server-side with the OAuth
+        state and used after callback completion.
+      parameters:
+        - name: r
+          in: query
+          required: true
+          description: Post-login redirect URL.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '302':
+          description: Redirection
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Auth
   /api/questions:
     get:
       operationId: Questions_list
@@ -710,6 +897,31 @@ paths:
               $ref: '#/components/schemas/Questions.SubmitAnswerRequest'
 components:
   schemas:
+    Auth.SessionResponse:
+      type: object
+      required:
+        - username
+        - email
+        - accessTokenExpiresAt
+        - refreshTokenExpiresAt
+      properties:
+        username:
+          type: string
+          description: Authenticated user's display username.
+        email:
+          type: string
+          description: Authenticated user's email address.
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: Timestamp when the current access token expires.
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
+          description: Timestamp when the current refresh token family expires.
+      description: |-
+        Authenticated session metadata. Session tokens are issued and refreshed through
+        HttpOnly cookies and are intentionally not exposed in response bodies.
     Chat.Chat:
       type: object
       required:
