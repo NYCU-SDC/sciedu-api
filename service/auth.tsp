@@ -4,6 +4,7 @@ import "../main.tsp";
 using Http;
 using SciEdu;
 
+@tag("Auth")
 namespace SciEdu.Auth;
 
 // -----------------------------------------------------------------------------
@@ -15,6 +16,12 @@ namespace SciEdu.Auth;
   HttpOnly cookies and are intentionally not exposed in response bodies.
   """)
 model SessionResponse {
+  @doc("Authenticated user's display username.")
+  username: string;
+
+  @doc("Authenticated user's email address.")
+  email: string;
+
   @doc("Timestamp when the current access token expires.")
   accessTokenExpiresAt: utcDateTime;
 
@@ -22,11 +29,15 @@ model SessionResponse {
   refreshTokenExpiresAt: utcDateTime;
 }
 
+model UnauthorizedResponse {
+  @statusCode statusCode: 401;
+  @body error: SciEdu.Unauthorized;
+}
+
 // -----------------------------------------------------------------------------
 // Operations
 // -----------------------------------------------------------------------------
 
-@tag("Auth")
 @route("/auth")
 interface Auth {
   @doc("Return metadata for the authenticated session using session cookies.")
@@ -43,7 +54,7 @@ interface Auth {
   ): {
     @statusCode statusCode: 200;
     @body body: SessionResponse;
-  } | Unauthorized;
+  } | UnauthorizedResponse;
 
   @doc("""
     Rotate the refresh token, set new session cookies, and return updated
@@ -59,7 +70,7 @@ interface Auth {
     @statusCode statusCode: 200;
     @header("Set-Cookie") setCookie: string[];
     @body body: SessionResponse;
-  } | Unauthorized | ProblemDetail;
+  } | UnauthorizedResponse | ProblemDetail;
 
   @doc("Revoke the entire refresh token family, clear session cookies, and end the session.")
   @post
@@ -74,7 +85,6 @@ interface Auth {
   } | ProblemDetail;
 }
 
-@tag("Auth")
 @route("/login/oauth")
 interface OAuthLogin {
   @doc("""
@@ -90,7 +100,6 @@ interface OAuthLogin {
   } | ProblemDetail;
 }
 
-@tag("Auth")
 @route("/auth")
 interface OAuthCallback {
   @doc("""
@@ -111,5 +120,5 @@ interface OAuthCallback {
     @statusCode statusCode: 302;
     @header("Location") location: string;
     @header("Set-Cookie") setCookie: string[];
-  } | Unauthorized | ProblemDetail;
+  } | UnauthorizedResponse | ProblemDetail;
 }
