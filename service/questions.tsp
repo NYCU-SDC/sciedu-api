@@ -123,31 +123,75 @@ model SubmitAnswerRequest {
 interface Questions {
   @doc("List all questions")
   @get
-  list(): Question[] | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  list(): Question[] | ProblemDetail | {
+    @statusCode statusCode: 401;
+    @body error: SciEdu.Unauthorized;
+  };
 
   @doc("Get details of a single question (including options)")
   @get
-  get(@path id: integer): Question | NotFound | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  get(@path id: integer):
+    | Question
+    | NotFound
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      };
 
   @doc("Create a new question (including options)")
   @post
-  create(@body body: CreateUpdateQuestionRequest): {
-    @statusCode statusCode: 201;
-    @body body: Question;
-  } | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  create(@body body: CreateUpdateQuestionRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body body: Question;
+      }
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
 
   @doc("Update a question (Full update; replaces existing options)")
   @put
-  update(
-    @path id: integer,
-    @body body: CreateUpdateQuestionRequest,
-  ): Question | NotFound | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  update(@path id: integer, @body body: CreateUpdateQuestionRequest):
+    | Question
+    | NotFound
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
 
   @doc("Delete a question")
   @delete
-  delete(@path id: uuid): {
-    @statusCode statusCode: 204;
-  } | NotFound | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  delete(@path id: uuid):
+    | {
+        @statusCode statusCode: 204;
+      }
+    | NotFound
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
 
   // -----------------------
   // Answers Sub-resources
@@ -156,11 +200,24 @@ interface Questions {
   @doc("Get all answers for a specific question (for Experimenter view)")
   @route("/{id}/answers")
   @get
-  listAnswers(@path id: uuid): Answer[] | NotFound | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  listAnswers(@path id: uuid):
+    | Answer[]
+    | NotFound
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
 
   @doc("Submit an answer for a specific question")
   @route("/{id}/answers")
   @post
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
   submitAnswer(@path id: uuid, @body body: SubmitAnswerRequest):
     | {
         @statusCode statusCode: 201;
@@ -168,5 +225,9 @@ interface Questions {
       }
     | Conflict
     | NotFound
-    | ProblemDetail;
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      };
 }

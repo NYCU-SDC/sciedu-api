@@ -34,6 +34,16 @@ model UnauthorizedResponse {
   @body error: SciEdu.Unauthorized;
 }
 
+// Provide for other API operators to check the authentication states
+alias SciEduOAuth<Scopes extends string[]> = OAuth2Auth<[
+  {
+    type: OAuth2FlowType.authorizationCode;
+    authorizationUrl: "/api/auth/oauth/google";
+    tokenUrl: "/api/auth/oauth/google/callback";
+    scopes: Scopes;
+  }
+]>;
+
 // -----------------------------------------------------------------------------
 // Operations
 // -----------------------------------------------------------------------------

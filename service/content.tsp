@@ -101,6 +101,7 @@ interface Content {
   @doc("List text contents (paginated).")
   @get
   @route("/text")
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
   listText(
     @query page?: int32 = 1,
 
@@ -112,35 +113,57 @@ interface Content {
   ): {
     @statusCode statusCode: 200;
     @body body: PaginatedTextResponse;
-  } | Unauthorized | ProblemDetail;
+  } | {
+    @statusCode statusCode: 401;
+    @body error: SciEdu.Unauthorized;
+  } | ProblemDetail;
 
   @doc("Get a single text content by ID")
   @get
   @route("/text/{id}")
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
   getText(@path id: uuid):
     | {
         @statusCode statusCode: 200;
         @body body: TextContent;
       }
-    | Unauthorized
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
     | NotFound
     | ProblemDetail;
 
   @doc("Batch-fetch text contents by a list of IDs. Returns an array of TextContent.")
   @post
   @route("/text/batch")
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
   batchGetText(@body body: BatchTextRequest): {
     @statusCode statusCode: 200;
     @body body: TextContent[];
-  } | Unauthorized | ProblemDetail;
+  } | {
+    @statusCode statusCode: 401;
+    @body error: SciEdu.Unauthorized;
+  } | ProblemDetail;
 
   @doc("Create a new text content")
   @post
   @route("/text")
-  createText(@body body: CreateTextRequest): {
-    @statusCode statusCode: 201;
-    @body body: TextContent;
-  } | Unauthorized | ProblemDetail;
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  createText(@body body: CreateTextRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body body: TextContent;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      }
+    | ProblemDetail;
 
   // ── Media ─────────────────────────────────────────────────────────────────
 
@@ -152,6 +175,7 @@ interface Content {
     """)
   @get
   @route("/media/{id}")
+  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
   streamMedia(@path id: uuid):
     | {
         @statusCode statusCode: 200;
@@ -160,37 +184,59 @@ interface Content {
         @header("Content-Disposition") contentDisposition: string;
         @body body: bytes;
       }
-    | Unauthorized
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
     | NotFound
     | ProblemDetail;
 
   @doc("""
-      Upload a new media file (multipart/form-data).
-      The `content` part carries the raw file bytes.
-      Returns the created MediaContent record with the stored file path.
+        Upload a new media file (multipart/form-data).
+        The `content` part carries the raw file bytes.
+        Returns the created MediaContent record with the stored file path.
     """)
   @post
   @route("/media")
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
   createMedia(
     @multipartBody body: {
       @doc("Raw file bytes to upload")
       content: HttpPart<bytes>;
     },
-  ): {
-    @statusCode statusCode: 201;
-    @body body: MediaContent;
-  } | Unauthorized | ProblemDetail;
+  ):
+    | {
+        @statusCode statusCode: 201;
+        @body body: MediaContent;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      }
+    | ProblemDetail;
 
   // ── Shared ────────────────────────────────────────────────────────────────
 
   @doc("Delete a content item (text or media) by ID")
   @delete
   @route("/{id}")
+  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
   delete(@path id: uuid):
     | {
         @statusCode statusCode: 204;
       }
-    | Unauthorized
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      }
     | NotFound
     | ProblemDetail;
 }
