@@ -123,7 +123,7 @@ model SubmitAnswerRequest {
 interface Questions {
   @doc("List all questions")
   @get
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   list(): Question[] | ProblemDetail | {
     @statusCode statusCode: 401;
     @body error: SciEdu.Unauthorized;
@@ -131,7 +131,7 @@ interface Questions {
 
   @doc("Get details of a single question (including options)")
   @get
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   get(@path id: integer):
     | Question
     | NotFound
@@ -143,7 +143,7 @@ interface Questions {
 
   @doc("Create a new question (including options)")
   @post
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   create(@body body: CreateUpdateQuestionRequest):
     | {
         @statusCode statusCode: 201;
@@ -161,7 +161,7 @@ interface Questions {
 
   @doc("Update a question (Full update; replaces existing options)")
   @put
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   update(@path id: integer, @body body: CreateUpdateQuestionRequest):
     | Question
     | NotFound
@@ -177,7 +177,7 @@ interface Questions {
 
   @doc("Delete a question")
   @delete
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   delete(@path id: uuid):
     | {
         @statusCode statusCode: 204;
@@ -200,7 +200,7 @@ interface Questions {
   @doc("Get all answers for a specific question (for Experimenter view)")
   @route("/{id}/answers")
   @get
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   listAnswers(@path id: uuid):
     | Answer[]
     | NotFound
@@ -217,7 +217,7 @@ interface Questions {
   @doc("Submit an answer for a specific question")
   @route("/{id}/answers")
   @post
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   submitAnswer(@path id: uuid, @body body: SubmitAnswerRequest):
     | {
         @statusCode statusCode: 201;

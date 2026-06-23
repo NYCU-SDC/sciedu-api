@@ -44,6 +44,8 @@ alias SciEduOAuth<Scopes extends string[]> = OAuth2Auth<[
   }
 ]>;
 
+alias SessionCookieAuth = ApiKeyAuth<ApiKeyLocation.cookie, "access_token">;
+
 // -----------------------------------------------------------------------------
 // Operations
 // -----------------------------------------------------------------------------

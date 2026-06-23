@@ -101,7 +101,7 @@ interface Content {
   @doc("List text contents (paginated).")
   @get
   @route("/text")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   listText(
     @query page?: int32 = 1,
 
@@ -121,7 +121,7 @@ interface Content {
   @doc("Get a single text content by ID")
   @get
   @route("/text/{id}")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   getText(@path id: uuid):
     | {
         @statusCode statusCode: 200;
@@ -137,7 +137,7 @@ interface Content {
   @doc("Batch-fetch text contents by a list of IDs. Returns an array of TextContent.")
   @post
   @route("/text/batch")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   batchGetText(@body body: BatchTextRequest): {
     @statusCode statusCode: 200;
     @body body: TextContent[];
@@ -149,7 +149,7 @@ interface Content {
   @doc("Create a new text content")
   @post
   @route("/text")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   createText(@body body: CreateTextRequest):
     | {
         @statusCode statusCode: 201;
@@ -175,7 +175,7 @@ interface Content {
     """)
   @get
   @route("/media/{id}")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["openid", "email"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   streamMedia(@path id: uuid):
     | {
         @statusCode statusCode: 200;
@@ -198,7 +198,7 @@ interface Content {
     """)
   @post
   @route("/media")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   createMedia(
     @multipartBody body: {
       @doc("Raw file bytes to upload")
@@ -224,7 +224,7 @@ interface Content {
   @doc("Delete a content item (text or media) by ID")
   @delete
   @route("/{id}")
-  @useAuth(SciEdu.Auth.SciEduOAuth<["ADMIN", "EXPERIMENTER"]>)
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   delete(@path id: uuid):
     | {
         @statusCode statusCode: 204;
