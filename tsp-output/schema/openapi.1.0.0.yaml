@@ -205,6 +205,8 @@ paths:
                 $ref: '#/components/schemas/Unauthorized'
       tags:
         - Chat
+      security:
+        - ApiKeyAuth: []
     post:
       operationId: Chats_create
       description: Create a new chat session.
@@ -229,6 +231,8 @@ paths:
                 $ref: '#/components/schemas/Unauthorized'
       tags:
         - Chat
+      security:
+        - ApiKeyAuth: []
   /api/chat/stream/{messageId}:
     get:
       operationId: Stream_get
@@ -279,6 +283,8 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Chat
+      security:
+        - ApiKeyAuth: []
   /api/chat/{chatId}:
     get:
       operationId: Chats_get
@@ -342,12 +348,14 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Chat
+      security:
+        - ApiKeyAuth: []
     delete:
       operationId: Chats_delete
-      description: |-
-        Delete a chat session and all of its messages. Only the chat's owner may
-        delete it; requests for chats owned by another user return 404 (the chat
-        is not visible to the caller).
+      description: |2-
+          Delete a chat session and all of its messages. Only the chat's owner may
+          delete it; requests for chats owned by another user return 404 (the chat
+          is not visible to the caller).
       parameters:
         - name: chatId
           in: path
@@ -371,6 +379,8 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Chat
+      security:
+        - ApiKeyAuth: []
     post:
       operationId: Chats_createMessage
       description: Send a message to a chat session. Returns the sent message and the ID of the pending reply message.
@@ -435,13 +445,15 @@ paths:
                   $ref: '#/components/schemas/uuid'
               required:
                 - content
+      security:
+        - ApiKeyAuth: []
   /api/content/media:
     post:
       operationId: Content_createMedia
       description: |2-
-          Upload a new media file (multipart/form-data).
-          The `content` part carries the raw file bytes.
-          Returns the created MediaContent record with the stored file path.
+            Upload a new media file (multipart/form-data).
+            The `content` part carries the raw file bytes.
+            Returns the created MediaContent record with the stored file path.
       parameters: []
       responses:
         '201':
@@ -450,14 +462,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Content.MediaContent'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
       requestBody:
@@ -471,6 +493,8 @@ paths:
                   description: Raw file bytes to upload
               required:
                 - content
+      security:
+        - ApiKeyAuth: []
   /api/content/media/{id}:
     get:
       operationId: Content_streamMedia
@@ -502,17 +526,24 @@ paths:
             '*/*':
               schema:
                 contentMediaType: '*/*'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
                 anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
                   - $ref: '#/components/schemas/NotFound'
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
+      security:
+        - ApiKeyAuth: []
   /api/content/text:
     get:
       operationId: Content_listText
@@ -544,16 +575,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Content.PaginatedTextResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
+      security:
+        - ApiKeyAuth: []
     post:
       operationId: Content_createText
       description: Create a new text content
@@ -565,14 +602,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Content.TextContent'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
       requestBody:
@@ -581,6 +628,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Content.CreateTextRequest'
+      security:
+        - ApiKeyAuth: []
   /api/content/text/batch:
     post:
       operationId: Content_batchGetText
@@ -595,14 +644,18 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Content.TextContent'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
       requestBody:
@@ -611,6 +664,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Content.BatchTextRequest'
+      security:
+        - ApiKeyAuth: []
   /api/content/text/{id}:
     get:
       operationId: Content_getText
@@ -628,17 +683,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Content.TextContent'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
                 anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
                   - $ref: '#/components/schemas/NotFound'
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
+      security:
+        - ApiKeyAuth: []
   /api/content/{id}:
     delete:
       operationId: Content_delete
@@ -652,17 +714,30 @@ paths:
       responses:
         '204':
           description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
                 anyOf:
-                  - $ref: '#/components/schemas/Unauthorized'
                   - $ref: '#/components/schemas/NotFound'
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Content
+      security:
+        - ApiKeyAuth: []
   /api/healthz:
     get:
       operationId: Healthz_checkHealthz
@@ -719,6 +794,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Questions.Question'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
@@ -727,6 +808,8 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
+      security:
+        - ApiKeyAuth: []
     post:
       operationId: Questions_create
       description: Create a new question (including options)
@@ -738,6 +821,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Questions.Question'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
@@ -752,6 +847,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Questions.CreateUpdateQuestionRequest'
+      security:
+        - ApiKeyAuth: []
   /api/questions/{id}:
     get:
       operationId: Questions_get
@@ -769,6 +866,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Questions.Question'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
@@ -779,6 +882,8 @@ paths:
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
+      security:
+        - ApiKeyAuth: []
     put:
       operationId: Questions_update
       description: Update a question (Full update; replaces existing options)
@@ -795,6 +900,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Questions.Question'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
@@ -811,6 +928,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Questions.CreateUpdateQuestionRequest'
+      security:
+        - ApiKeyAuth: []
     delete:
       operationId: Questions_delete
       description: Delete a question
@@ -823,6 +942,18 @@ paths:
       responses:
         '204':
           description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
@@ -833,6 +964,8 @@ paths:
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
+      security:
+        - ApiKeyAuth: []
   /api/questions/{id}/answers:
     get:
       operationId: Questions_listAnswers
@@ -852,6 +985,18 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Questions.Answer'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
         default:
           description: An unexpected error response.
           content:
@@ -862,6 +1007,8 @@ paths:
                   - $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
+      security:
+        - ApiKeyAuth: []
     post:
       operationId: Questions_submitAnswer
       description: Submit an answer for a specific question
@@ -878,6 +1025,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Questions.Answer'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
         default:
           description: An unexpected error response.
           content:
@@ -895,6 +1048,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Questions.SubmitAnswerRequest'
+      security:
+        - ApiKeyAuth: []
 components:
   schemas:
     Auth.SessionResponse:
@@ -1191,6 +1346,30 @@ components:
           type: string
           description: Text body
       description: A text content item
+    Forbidden:
+      type: object
+      required:
+        - title
+        - status
+        - type
+        - detail
+      properties:
+        title:
+          type: string
+          enum:
+            - Forbidden
+        status:
+          type: number
+          enum:
+            - 403
+        type:
+          type: string
+          enum:
+            - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+        detail:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetail'
     NotFound:
       type: object
       required:
@@ -1395,6 +1574,11 @@ components:
     uuid:
       type: string
       format: uuid
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
 servers:
   - url: https://api.dev.sciedu.sdc.nycu.club
     description: SciEdu server endpoint
