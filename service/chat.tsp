@@ -98,6 +98,7 @@ namespace Chats {
     (most recently updated first). Powers the chat history sidebar.
     """)
   @get
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   op list(
     @query page?: int32 = 1,
 
@@ -116,6 +117,7 @@ namespace Chats {
 
   @doc("Create a new chat session.")
   @post
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   op create(): {
     @statusCode statusCode: 201;
     @body body: {
@@ -129,6 +131,7 @@ namespace Chats {
   @doc("Returns chat and all messages in the chat.")
   @route("/{chatId}")
   @get
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   op get(@path chatId: uuid): {
     @statusCode statusCode: 200;
     @body body: {
@@ -144,12 +147,13 @@ namespace Chats {
   };
 
   @doc("""
-    Delete a chat session and all of its messages. Only the chat's owner may
-    delete it; requests for chats owned by another user return 404 (the chat
-    is not visible to the caller).
+      Delete a chat session and all of its messages. Only the chat's owner may
+      delete it; requests for chats owned by another user return 404 (the chat
+      is not visible to the caller).
     """)
   @route("/{chatId}")
   @delete
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   op delete(@path chatId: uuid): {
     @statusCode statusCode: 204;
   } | {
@@ -163,6 +167,7 @@ namespace Chats {
   @doc("Send a message to a chat session. Returns the sent message and the ID of the pending reply message.")
   @route("/{chatId}")
   @post
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
   op createMessage(
     @path chatId: uuid,
     @body body: {
@@ -201,6 +206,7 @@ namespace Chats {
   namespace Stream {
     @doc("Stream the assistant reply for a given message using Server-Sent Events. Returns 404 if the messageId does not exist, 400 if the message has no reply pending yet.")
     @get
+    @useAuth(SciEdu.Auth.SessionCookieAuth)
     op get(@path messageId: uuid):
       | {
           @statusCode statusCode: 200;

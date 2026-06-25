@@ -45,3 +45,11 @@ model Conflict extends ProblemDetail {
   type: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409";
   detail: string;
 }
+
+@error
+model Forbidden extends ProblemDetail {
+  title: "Forbidden";
+  status: 403;
+  type: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403";
+  detail: string;
+}
