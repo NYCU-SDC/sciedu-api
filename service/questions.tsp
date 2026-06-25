@@ -85,19 +85,19 @@ model CreateUpdateQuestionRequest {
  * Answer submitted by a student (maps to questions_users_answers table)
  */
 model Answer {
-  @doc("回答 ID")
+  @doc("Answer ID")
   id: uuid;
 
-  @doc("題目 ID")
+  @doc("ID of corresponding question")
   questionId: uuid;
 
-  @doc("選擇的選項 ID")
+  @doc("The ID of the option which the user chose")
   selectedOptionId?: uuid;
 
   @doc("Textual answer (for TEXT type only)")
   textAnswer?: string;
 
-  @doc("回答建立時間")
+  @doc("Answer creation time")
   createdAt: utcDateTime;
 }
 
@@ -106,7 +106,7 @@ model Answer {
  */
 model SubmitAnswerRequest {
   @doc("Selected option ID (if it is a choice question)")
-  selectedOptionId?: integer;
+  selectedOptionId?: uuid;
 
   @doc("Textual answer (if it is a text-based question)")
   @minLength(1)
@@ -132,7 +132,7 @@ interface Questions {
   @doc("Get details of a single question (including options)")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  get(@path id: integer):
+  get(@path id: uuid):
     | Question
     | NotFound
     | ProblemDetail
@@ -162,7 +162,7 @@ interface Questions {
   @doc("Update a question (Full update; replaces existing options)")
   @put
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  update(@path id: integer, @body body: CreateUpdateQuestionRequest):
+  update(@path id: uuid, @body body: CreateUpdateQuestionRequest):
     | Question
     | NotFound
     | ProblemDetail

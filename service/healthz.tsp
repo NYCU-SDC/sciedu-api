@@ -8,6 +8,7 @@ namespace SciEdu.Healthz {
   @get
   op checkHealthz(): {
     @statusCode statusCode: 200;
+    @body body: { status: "OK" };
   } | {
     @statusCode statusCode: 404;
   };
