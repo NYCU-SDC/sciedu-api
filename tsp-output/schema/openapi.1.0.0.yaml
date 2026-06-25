@@ -745,6 +745,17 @@ paths:
       responses:
         '200':
           description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - OK
+                required:
+                  - status
         '404':
           description: The server cannot find the requested resource.
       tags:
@@ -858,7 +869,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            $ref: '#/components/schemas/uuid'
       responses:
         '200':
           description: The request has succeeded.
@@ -892,7 +903,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            $ref: '#/components/schemas/uuid'
       responses:
         '200':
           description: The request has succeeded.
@@ -1428,22 +1439,22 @@ components:
         id:
           allOf:
             - $ref: '#/components/schemas/uuid'
-          description: 回答 ID
+          description: Answer ID
         questionId:
           allOf:
             - $ref: '#/components/schemas/uuid'
-          description: 題目 ID
+          description: ID of corresponding question
         selectedOptionId:
           allOf:
             - $ref: '#/components/schemas/uuid'
-          description: 選擇的選項 ID
+          description: The ID of the option which the user chose
         textAnswer:
           type: string
           description: Textual answer (for TEXT type only)
         createdAt:
           type: string
           format: date-time
-          description: 回答建立時間
+          description: Answer creation time
       description: Answer submitted by a student (maps to questions_users_answers table)
     Questions.CreateUpdateQuestionRequest:
       type: object
@@ -1538,7 +1549,8 @@ components:
       type: object
       properties:
         selectedOptionId:
-          type: integer
+          allOf:
+            - $ref: '#/components/schemas/uuid'
           description: Selected option ID (if it is a choice question)
         textAnswer:
           type: string
