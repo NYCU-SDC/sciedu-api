@@ -91,6 +91,9 @@ model Answer {
   @doc("ID of corresponding question")
   questionId: uuid;
 
+  @doc("Opaque ID of the user who submitted the answer")
+  userId: uuid;
+
   @doc("The ID of the option which the user chose")
   selectedOptionId?: uuid;
 
@@ -197,7 +200,7 @@ interface Questions {
   // Answers Sub-resources
   // -----------------------
 
-  @doc("Get all answers for a specific question (for Experimenter view)")
+  @doc("Get all answers for a specific question. Requires EXPERIMENTER or ADMIN. Results are ordered by creation time descending.")
   @route("/{id}/answers")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
