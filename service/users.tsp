@@ -45,6 +45,11 @@ model UpdateUserRolesRequest {
   roles: UserRole[];
 }
 
+model UserNotFoundResponse {
+  @statusCode statusCode: 404;
+  @body error: SciEdu.NotFound;
+}
+
 // -----------------------------------------------------------------------------
 // Operations
 // -----------------------------------------------------------------------------
@@ -64,7 +69,7 @@ interface Users {
     @body error: SciEdu.Unauthorized;
   } | ProblemDetail;
 
-  @doc("List users for administration. Requires ADMIN. Results are ordered by name, then ID.")
+  @doc("List users. Requires ADMIN or EXPERIMENTER. Results are ordered by name, then ID.")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
   list(
@@ -106,7 +111,7 @@ interface Users {
       }
     | ProblemDetail;
 
-  @doc("Get a user by ID for administration. Requires ADMIN.")
+  @doc("Get a user by ID. Requires ADMIN or EXPERIMENTER.")
   @get
   @route("/{id}")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
@@ -127,7 +132,30 @@ interface Users {
         @statusCode statusCode: 400;
         @body error: ProblemDetail;
       }
-    | NotFound
+    | UserNotFoundResponse
+    | ProblemDetail;
+
+  @doc("Soft-delete a user, revoke their sessions, and prevent future OAuth login. Requires ADMIN and cannot target the caller.")
+  @delete
+  @route("/{id}")
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  delete(@path id: uuid):
+    | {
+        @statusCode statusCode: 204;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ProblemDetail;
+      }
+    | UserNotFoundResponse
     | ProblemDetail;
 
   @doc("Fully replace a user's roles. Requires ADMIN and cannot target the caller.")
@@ -151,6 +179,6 @@ interface Users {
         @statusCode statusCode: 400;
         @body error: ProblemDetail;
       }
-    | NotFound
+    | UserNotFoundResponse
     | ProblemDetail;
 }

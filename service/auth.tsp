@@ -115,8 +115,12 @@ interface OAuthLogin {
 @route("/auth")
 interface OAuthCallback {
   @doc("""
-    Complete the Google OAuth login flow, set session cookies on success, and
-    redirect the client to the originally requested URL.
+    Complete the Google OAuth login flow using a verified email identity. Before
+    issuing a session, find the user by the stable provider subject or atomically
+    create the OAuth identity and a user with the STUDENT role. Existing identities
+    must not create duplicate users, and disabled users must be denied rather than
+    recreated. Set session cookies on success and redirect the client to the
+    originally requested URL.
     """)
   @get
   @route("/callback")

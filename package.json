@@ -11,6 +11,8 @@
     "format": "tsp format **/*.tsp",
     "compile": "tsp compile .",
     "clean": "rm -rf tsp-output yaak",
+    "preview": "http-server . -a 127.0.0.1 --port 3000 -c-1",
+    "preview:build": "pnpm run build && pnpm run preview",
     "start": "pnpm exec prism mock tsp-output/schema/openapi.1.0.0.yaml --port 4010 --host 0.0.0.0",
     "yaak": "node scripts/generate-yaak.js"
   },
@@ -20,7 +22,8 @@
     "@typespec/http": "^1.6.0",
     "@typespec/openapi3": "^1.6.0",
     "@typespec/rest": "^0.74.0",
-    "@typespec/versioning": "^0.74.0"
+    "@typespec/versioning": "^0.74.0",
+    "http-server": "^14.1.1"
   },
   "dependencies": {
     "js-yaml": "^4.1.1"
