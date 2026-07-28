@@ -8,13 +8,18 @@ tags:
   - name: Chat
   - name: Content
   - name: Auth
+  - name: Users
 paths:
   /api/auth/callback:
     get:
       operationId: OAuthCallback_callback
       description: |-
-        Complete the Google OAuth login flow, set session cookies on success, and
-        redirect the client to the originally requested URL.
+        Complete the Google OAuth login flow using a verified email identity. Before
+        issuing a session, find the user by the stable provider subject or atomically
+        create the OAuth identity and a user with the STUDENT role. Existing identities
+        must not create duplicate users, and disabled users must be denied rather than
+        recreated. Set session cookies on success and redirect the client to the
+        originally requested URL.
       parameters:
         - name: code
           in: query
@@ -980,7 +985,7 @@ paths:
   /api/questions/{id}/answers:
     get:
       operationId: Questions_listAnswers
-      description: Get all answers for a specific question (for Experimenter view)
+      description: Get all answers for a specific question. Requires EXPERIMENTER or ADMIN. Results are ordered by creation time descending.
       parameters:
         - name: id
           in: path
@@ -1059,6 +1064,264 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Questions.SubmitAnswerRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/users:
+    get:
+      operationId: Users_list
+      description: List users. Requires ADMIN or EXPERIMENTER. Results are ordered by name, then ID.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          description: Number of users per page. Maximum value is 100.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+        - name: search
+          in: query
+          required: false
+          description: Case-insensitive substring search over name and email.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          explode: false
+        - name: role
+          in: query
+          required: false
+          description: Only return users that have this role.
+          schema:
+            $ref: '#/components/schemas/Users.UserRole'
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.PaginatedUsersResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      security:
+        - ApiKeyAuth: []
+  /api/users/me:
+    get:
+      operationId: Users_me
+      description: Return the currently authenticated user's profile and latest roles.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      security:
+        - ApiKeyAuth: []
+  /api/users/{id}:
+    get:
+      operationId: Users_get
+      description: Get a user by ID. Requires ADMIN or EXPERIMENTER.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      security:
+        - ApiKeyAuth: []
+    delete:
+      operationId: Users_delete
+      description: Soft-delete a user, revoke their sessions, and prevent future OAuth login. Requires ADMIN and cannot target the caller.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      security:
+        - ApiKeyAuth: []
+  /api/users/{id}/roles:
+    put:
+      operationId: Users_updateRoles
+      description: Fully replace a user's roles. Requires ADMIN and cannot target the caller.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Users.UpdateUserRolesRequest'
       security:
         - ApiKeyAuth: []
 components:
@@ -1434,6 +1697,7 @@ components:
       required:
         - id
         - questionId
+        - userId
         - createdAt
       properties:
         id:
@@ -1444,6 +1708,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/uuid'
           description: ID of corresponding question
+        userId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Opaque ID of the user who submitted the answer
         selectedOptionId:
           allOf:
             - $ref: '#/components/schemas/uuid'
@@ -1579,6 +1847,83 @@ components:
             - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
+    Users.PaginatedUsersResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Users.User'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+      description: Paginated user directory response.
+    Users.UpdateUserRolesRequest:
+      type: object
+      required:
+        - roles
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Users.UserRole'
+          minItems: 1
+          maxItems: 3
+      description: Fully replaces a user's roles. Roles must be unique.
+    Users.User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - roles
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        email:
+          type: string
+        name:
+          type: string
+        avatarUrl:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Users.UserRole'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      description: A SciEdu user profile.
+    Users.UserRole:
+      type: string
+      enum:
+        - STUDENT
+        - EXPERIMENTER
+        - ADMIN
+      description: Roles that can be assigned to a SciEdu user.
     Versions:
       type: string
       enum:
