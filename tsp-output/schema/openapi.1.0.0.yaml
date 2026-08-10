@@ -9,6 +9,9 @@ tags:
   - name: Content
   - name: Auth
   - name: Users
+  - name: Courses
+  - name: Pages
+  - name: Experiments
 paths:
   /api/auth/callback:
     get:
@@ -743,6 +746,1178 @@ paths:
         - Content
       security:
         - ApiKeyAuth: []
+  /api/courses:
+    get:
+      operationId: Courses_list
+      description: List courses. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Courses.CourseStatus'
+          explode: false
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Courses.PaginatedCoursesResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Courses
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: Courses_create
+      description: Create a DRAFT course. Requires EXPERIMENTER or ADMIN. Course codes must be unique.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Courses.Course'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Courses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Courses.CreateCourseRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/courses/{courseId}/pages:
+    get:
+      operationId: CoursePages_list
+      description: List pages in display order. Students may only access a PUBLISHED course assigned to their current experiment.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pages.Page'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: CoursePages_create
+      description: Create a page in a course. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pages.PageDetail'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pages.CreatePageRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/courses/{courseId}/pages/order:
+    put:
+      operationId: CoursePages_reorder
+      description: Atomically reorder every page in a course. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pages.Page'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pages.ReorderPagesRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/courses/{id}:
+    get:
+      operationId: Courses_get
+      description: Get a course. Students may only access a PUBLISHED course assigned to their current experiment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Courses.Course'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Courses
+      security:
+        - ApiKeyAuth: []
+    put:
+      operationId: Courses_update
+      description: Fully update course metadata. Requires EXPERIMENTER or ADMIN. Changes are immediately visible to assigned experiments.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Courses.Course'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Courses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Courses.UpdateCourseRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/courses/{id}/status:
+    put:
+      operationId: Courses_updateStatus
+      description: Update a course lifecycle status. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Courses.Course'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Courses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Courses.UpdateCourseStatusRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/experiments:
+    get:
+      operationId: Experiments_list
+      description: List experiments. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Experiments.ExperimentStatus'
+          explode: false
+        - name: scheduledFrom
+          in: query
+          required: false
+          description: Only include experiments ending at or after this timestamp.
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: scheduledTo
+          in: query
+          required: false
+          description: Only include experiments starting at or before this timestamp.
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.PaginatedExperimentsResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: Experiments_create
+      description: Create a DRAFT experiment. Requires EXPERIMENTER or ADMIN.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.ExperimentDetail'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Experiments.CreateExperimentRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/current:
+    get:
+      operationId: Experiments_current
+      description: Return the authenticated student's ACTIVE experiment whose schedule contains the current time, together with its PUBLISHED courses.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.CurrentExperimentResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/{id}:
+    get:
+      operationId: Experiments_get
+      description: Get an experiment summary. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.ExperimentDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+    put:
+      operationId: Experiments_update
+      description: Fully update experiment metadata, schedule, and configuration without changing its status. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.ExperimentDetail'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Experiments.UpdateExperimentRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/{id}/courses:
+    get:
+      operationId: Experiments_listCourses
+      description: List courses assigned to an experiment. Students may only access their current experiment; management roles may access any experiment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.PaginatedExperimentCoursesResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: Experiments_addCourses
+      description: Assign courses to an experiment. The batch is atomic and fails with 409 without creating any assignments if any assignment conflicts. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Experiments.ExperimentCourseAssignment'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Experiments.AddExperimentCoursesRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/{id}/courses/{courseId}:
+    delete:
+      operationId: Experiments_removeCourse
+      description: Remove a course assignment from an experiment. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/{id}/participants:
+    get:
+      operationId: Experiments_listParticipants
+      description: List experiment participants. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.PaginatedExperimentParticipantsResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: Experiments_addParticipants
+      description: Add participants. The batch is atomic and fails with 409 without creating any assignments if a participant has an overlapping experiment or any assignment conflicts. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Experiments.ExperimentParticipantAssignment'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Experiments.AddExperimentParticipantsRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/{id}/participants/{userId}:
+    delete:
+      operationId: Experiments_removeParticipant
+      description: Remove a participant from an experiment. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      security:
+        - ApiKeyAuth: []
+  /api/experiments/{id}/status:
+    put:
+      operationId: Experiments_updateStatus
+      description: Update an experiment lifecycle status. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experiments.ExperimentDetail'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Experiments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Experiments.UpdateExperimentStatusRequest'
+      security:
+        - ApiKeyAuth: []
   /api/healthz:
     get:
       operationId: Healthz_checkHealthz
@@ -796,6 +1971,440 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Auth
+  /api/pages/{id}:
+    get:
+      operationId: Pages_get
+      description: Get a page with its blocks in display order. Students may only access pages from a PUBLISHED course assigned to their current experiment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pages.PageDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      security:
+        - ApiKeyAuth: []
+    put:
+      operationId: Pages_update
+      description: Fully update page metadata. Requires EXPERIMENTER or ADMIN. Changes are immediately visible to assigned experiments.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pages.PageDetail'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pages.UpdatePageRequest'
+      security:
+        - ApiKeyAuth: []
+    delete:
+      operationId: Pages_delete
+      description: Delete a page and cascade deletion to its blocks. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      security:
+        - ApiKeyAuth: []
+  /api/pages/{id}/blocks:
+    get:
+      operationId: Pages_listBlocks
+      description: List a page's blocks in display order. Students may only access blocks through an authorized page.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pages.PageBlock'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: Pages_createBlock
+      description: Create a block. resourceId must exist and match type. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pages.PageBlock'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pages.CreateUpdatePageBlockRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/pages/{id}/blocks/order:
+    put:
+      operationId: Pages_reorderBlocks
+      description: Atomically reorder every block in a page. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pages.PageBlock'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pages.ReorderPageBlocksRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/pages/{id}/blocks/{blockId}:
+    put:
+      operationId: Pages_updateBlock
+      description: Fully update a block. resourceId must exist and match type. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pages.PageBlock'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pages.CreateUpdatePageBlockRequest'
+      security:
+        - ApiKeyAuth: []
+    delete:
+      operationId: Pages_deleteBlock
+      description: Delete a block. Requires EXPERIMENTER or ADMIN.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Pages
+      security:
+        - ApiKeyAuth: []
   /api/questions:
     get:
       operationId: Questions_list
@@ -1620,6 +3229,417 @@ components:
           type: string
           description: Text body
       description: A text content item
+    Courses.Course:
+      type: object
+      required:
+        - id
+        - code
+        - title
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        status:
+          $ref: '#/components/schemas/Courses.CourseStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Courses.CourseStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - ARCHIVED
+    Courses.CreateCourseRequest:
+      type: object
+      required:
+        - code
+        - title
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+    Courses.PaginatedCoursesResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Courses.Course'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+    Courses.UpdateCourseRequest:
+      type: object
+      required:
+        - code
+        - title
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+      description: Fully replaces a course's editable metadata.
+    Courses.UpdateCourseStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/Courses.CourseStatus'
+    Experiments.AddExperimentCoursesRequest:
+      type: object
+      required:
+        - courseIds
+      properties:
+        courseIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          minItems: 1
+          maxItems: 100
+    Experiments.AddExperimentParticipantsRequest:
+      type: object
+      required:
+        - userIds
+      properties:
+        userIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          minItems: 1
+          maxItems: 100
+    Experiments.CorrectAnswerReleaseMode:
+      type: string
+      enum:
+        - AFTER_PAGE_SUBMISSION
+        - AFTER_COURSE_COMPLETION
+        - NEVER
+      description: When students may see correct answers.
+    Experiments.CreateExperimentRequest:
+      type: object
+      required:
+        - name
+        - scheduledStartAt
+        - scheduledEndAt
+        - configuration
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        scheduledStartAt:
+          type: string
+          format: date-time
+          description: Must be earlier than scheduledEndAt.
+        scheduledEndAt:
+          type: string
+          format: date-time
+        configuration:
+          $ref: '#/components/schemas/Experiments.ExperimentConfiguration'
+    Experiments.CurrentExperimentResponse:
+      type: object
+      required:
+        - experiment
+        - courses
+      properties:
+        experiment:
+          $ref: '#/components/schemas/Experiments.Experiment'
+        courses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Courses.Course'
+    Experiments.Experiment:
+      type: object
+      required:
+        - id
+        - name
+        - scheduledStartAt
+        - scheduledEndAt
+        - status
+        - configuration
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        scheduledStartAt:
+          type: string
+          format: date-time
+        scheduledEndAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/Experiments.ExperimentStatus'
+        configuration:
+          $ref: '#/components/schemas/Experiments.ExperimentConfiguration'
+        createdBy:
+          $ref: '#/components/schemas/uuid'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Experiments.ExperimentConfiguration:
+      type: object
+      required:
+        - maxAttempts
+        - allowRetry
+        - showScore
+        - showExplanations
+        - gradingMode
+        - correctAnswerReleaseMode
+      properties:
+        maxAttempts:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Maximum total attempts. Must be 1 when allowRetry is false and at least 2 when allowRetry is true.
+        allowRetry:
+          type: boolean
+          description: Whether a participant may start another attempt.
+        showScore:
+          type: boolean
+          description: Whether scores are visible to participants. Independent of correctAnswerReleaseMode.
+        showExplanations:
+          type: boolean
+          description: Whether grading explanations are visible to participants. Independent of correctAnswerReleaseMode.
+        gradingMode:
+          allOf:
+            - $ref: '#/components/schemas/Experiments.GradingMode'
+          description: How submitted answers are graded.
+        correctAnswerReleaseMode:
+          allOf:
+            - $ref: '#/components/schemas/Experiments.CorrectAnswerReleaseMode'
+          description: Controls when correct answers are released. This does not control score or explanation visibility.
+      description: Experiment-specific retry, grading, score, explanation, and correct-answer release settings. Every field is required.
+    Experiments.ExperimentCourseAssignment:
+      type: object
+      required:
+        - course
+        - linkedAt
+      properties:
+        course:
+          $ref: '#/components/schemas/Courses.Course'
+        linkedAt:
+          type: string
+          format: date-time
+    Experiments.ExperimentDetail:
+      type: object
+      required:
+        - participantCount
+        - courseCount
+      properties:
+        participantCount:
+          type: integer
+          format: int32
+        courseCount:
+          type: integer
+          format: int32
+      allOf:
+        - $ref: '#/components/schemas/Experiments.Experiment'
+    Experiments.ExperimentParticipantAssignment:
+      type: object
+      required:
+        - participant
+        - assignedAt
+      properties:
+        participant:
+          $ref: '#/components/schemas/Users.User'
+        assignedAt:
+          type: string
+          format: date-time
+    Experiments.ExperimentStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SCHEDULED
+        - ACTIVE
+        - COMPLETED
+        - ARCHIVED
+    Experiments.GradingMode:
+      type: string
+      enum:
+        - AUTOMATIC
+        - MANUAL
+      description: How answers in the experiment are graded.
+    Experiments.PaginatedExperimentCoursesResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experiments.ExperimentCourseAssignment'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+    Experiments.PaginatedExperimentParticipantsResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experiments.ExperimentParticipantAssignment'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+    Experiments.PaginatedExperimentsResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experiments.Experiment'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+    Experiments.UpdateExperimentRequest:
+      type: object
+      required:
+        - name
+        - scheduledStartAt
+        - scheduledEndAt
+        - configuration
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        scheduledStartAt:
+          type: string
+          format: date-time
+          description: Must be earlier than scheduledEndAt.
+        scheduledEndAt:
+          type: string
+          format: date-time
+        configuration:
+          $ref: '#/components/schemas/Experiments.ExperimentConfiguration'
+      description: Fully replaces an experiment's editable metadata, schedule, and configuration.
+    Experiments.UpdateExperimentStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/Experiments.ExperimentStatus'
     Forbidden:
       type: object
       required:
@@ -1668,6 +3688,159 @@ components:
           type: string
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
+    Pages.CreatePageRequest:
+      type: object
+      required:
+        - title
+        - displayOrder
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        displayOrder:
+          type: integer
+          format: int32
+          minimum: 0
+    Pages.CreateUpdatePageBlockRequest:
+      type: object
+      required:
+        - type
+        - resourceId
+        - displayOrder
+        - required
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/Pages.PageBlockType'
+          description: Block resource type.
+        resourceId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: ID of the referenced resource. TEXT and MEDIA map to content_id and must match contents.type; QUESTION maps to question_id.
+        displayOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        required:
+          type: boolean
+    Pages.Page:
+      type: object
+      required:
+        - id
+        - courseId
+        - title
+        - displayOrder
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        courseId:
+          $ref: '#/components/schemas/uuid'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        displayOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Pages.PageBlock:
+      type: object
+      required:
+        - id
+        - pageId
+        - type
+        - resourceId
+        - displayOrder
+        - required
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/uuid'
+        pageId:
+          $ref: '#/components/schemas/uuid'
+        type:
+          $ref: '#/components/schemas/Pages.PageBlockType'
+        resourceId:
+          $ref: '#/components/schemas/uuid'
+        displayOrder:
+          type: integer
+          format: int32
+          minimum: 0
+        required:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Pages.PageBlockType:
+      type: string
+      enum:
+        - TEXT
+        - MEDIA
+        - QUESTION
+    Pages.PageDetail:
+      type: object
+      required:
+        - blocks
+      properties:
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pages.PageBlock'
+          description: Blocks ordered by displayOrder.
+      allOf:
+        - $ref: '#/components/schemas/Pages.Page'
+    Pages.ReorderPageBlocksRequest:
+      type: object
+      required:
+        - blockIds
+      properties:
+        blockIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          minItems: 1
+          maxItems: 1000
+          description: Every block in the page exactly once, in the desired order.
+    Pages.ReorderPagesRequest:
+      type: object
+      required:
+        - pageIds
+      properties:
+        pageIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/uuid'
+          minItems: 1
+          maxItems: 500
+          description: Every page in the course exactly once, in the desired order.
+    Pages.UpdatePageRequest:
+      type: object
+      required:
+        - title
+        - displayOrder
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        displayOrder:
+          type: integer
+          format: int32
+          minimum: 0
+      description: Fully replaces a page's editable metadata.
     ProblemDetail:
       type: object
       required:
