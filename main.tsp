@@ -8,6 +8,9 @@ import "./service/chat.tsp";
 import "./service/content.tsp";
 import "./service/auth.tsp";
 import "./service/users.tsp";
+import "./service/courses.tsp";
+import "./service/pages.tsp";
+import "./service/experiments.tsp";
 
 using Http;
 using Versioning;
