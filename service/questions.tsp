@@ -19,6 +19,33 @@ enum QuestionType {
 }
 
 /**
+ * Lifecycle state of an answer's grading result.
+ */
+enum GradingStatus {
+  PENDING: "PENDING",
+  GRADED: "GRADED",
+  FAILED: "FAILED",
+}
+
+/**
+ * Mechanism used to grade an answer. LLM is reserved for future text grading.
+ */
+enum GradingMethod {
+  DETERMINISTIC: "DETERMINISTIC",
+  MANUAL: "MANUAL",
+  LLM: "LLM",
+}
+
+/**
+ * Lifecycle state of the background regrade triggered by a correct-answer update.
+ */
+enum RegradeStatus {
+  PENDING: "PENDING",
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
+}
+
+/**
  * Option model (maps to options table)
  */
 model Option {
@@ -82,6 +109,66 @@ model CreateUpdateQuestionRequest {
 }
 
 /**
+ * Payload for storing the correct option of a CHOICE question.
+ */
+model ChoiceCorrectAnswerRequest {
+  type: "CHOICE";
+  selectedOptionId: uuid;
+}
+
+/**
+ * Payload for storing a reference answer for future TEXT grading.
+ */
+model TextCorrectAnswerRequest {
+  type: "TEXT";
+
+  @minLength(1)
+  @maxLength(2000)
+  referenceAnswer: string;
+}
+
+/**
+ * Correct-answer payload. The discriminator must match the question type.
+ */
+@discriminated(#{ envelope: "none", discriminatorPropertyName: "type" })
+union UpsertCorrectAnswerRequest {
+  CHOICE: ChoiceCorrectAnswerRequest,
+  TEXT: TextCorrectAnswerRequest,
+}
+
+model CorrectAnswerBase {
+  questionId: uuid;
+
+  @minValue(1)
+  version: int64;
+
+  regradeStatus: RegradeStatus;
+  updatedAt: utcDateTime;
+}
+
+model ChoiceCorrectAnswer extends CorrectAnswerBase {
+  type: "CHOICE";
+  selectedOptionId: uuid;
+}
+
+model TextCorrectAnswer extends CorrectAnswerBase {
+  type: "TEXT";
+
+  @minLength(1)
+  @maxLength(2000)
+  referenceAnswer: string;
+}
+
+/**
+ * Stored correct answer. This model is only exposed to EXPERIMENTER and ADMIN.
+ */
+@discriminated(#{ envelope: "none", discriminatorPropertyName: "type" })
+union CorrectAnswer {
+  CHOICE: ChoiceCorrectAnswer,
+  TEXT: TextCorrectAnswer,
+}
+
+/**
  * Answer submitted by a student (maps to questions_users_answers table)
  */
 model Answer {
@@ -90,6 +177,9 @@ model Answer {
 
   @doc("ID of corresponding question")
   questionId: uuid;
+
+  @doc("ID of the active experiment in which the answer was submitted")
+  experimentId: uuid;
 
   @doc("Opaque ID of the user who submitted the answer")
   userId: uuid;
@@ -102,6 +192,56 @@ model Answer {
 
   @doc("Answer creation time")
   createdAt: utcDateTime;
+}
+
+/**
+ * Persisted grading result for an answer. isCorrect is omitted while grading is
+ * pending or failed, and when the caller is not allowed to see scores.
+ */
+model AnswerResult {
+  answerId: uuid;
+  questionId: uuid;
+  status: GradingStatus;
+  method?: GradingMethod;
+
+  @doc("Whether the current caller may see the correctness result")
+  resultVisible: boolean;
+
+  isCorrect?: boolean;
+  gradedAt?: utcDateTime;
+}
+
+/**
+ * Management view of a submitted answer and its grading result.
+ */
+model AnswerWithResult {
+  ...Answer;
+  gradingStatus: GradingStatus;
+  gradingMethod?: GradingMethod;
+
+  @doc("Whether the submitted answer is correct. Omitted while grading is pending or failed, or when the result uses an outdated correct-answer version.")
+  isCorrect?: boolean;
+
+  gradedAt?: utcDateTime;
+}
+
+model PaginatedAnswersResponse {
+  items: AnswerWithResult[];
+  totalPages: int32;
+  totalItems: int32;
+  currentPage: int32;
+  pageSize: int32;
+  hasNextPage: boolean;
+}
+
+model QuestionNotFoundResponse {
+  @statusCode statusCode: 404;
+  @body error: NotFound;
+}
+
+model AnswerConflictResponse {
+  @statusCode statusCode: 409;
+  @body error: Conflict;
 }
 
 /**
@@ -137,7 +277,7 @@ interface Questions {
   @useAuth(SciEdu.Auth.SessionCookieAuth)
   get(@path id: uuid):
     | Question
-    | NotFound
+    | QuestionNotFoundResponse
     | ProblemDetail
     | {
         @statusCode statusCode: 401;
@@ -167,7 +307,7 @@ interface Questions {
   @useAuth(SciEdu.Auth.SessionCookieAuth)
   update(@path id: uuid, @body body: CreateUpdateQuestionRequest):
     | Question
-    | NotFound
+    | QuestionNotFoundResponse
     | ProblemDetail
     | {
         @statusCode statusCode: 401;
@@ -185,7 +325,55 @@ interface Questions {
     | {
         @statusCode statusCode: 204;
       }
-    | NotFound
+    | QuestionNotFoundResponse
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
+
+  // -----------------------
+  // Correct Answer Sub-resource
+  // -----------------------
+
+  @doc("Get the stored correct answer. Requires EXPERIMENTER or ADMIN. This endpoint never releases correct answers to students.")
+  @route("/{id}/correct-answer")
+  @get
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  getCorrectAnswer(@path id: uuid):
+    | {
+        @statusCode statusCode: 200;
+        @body body: CorrectAnswer;
+      }
+    | QuestionNotFoundResponse
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
+
+  @doc("Create or fully replace the correct answer. Requires EXPERIMENTER or ADMIN. Identical updates are idempotent. A changed answer increments its version and schedules background regrading.")
+  @route("/{id}/correct-answer")
+  @put
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  upsertCorrectAnswer(@path id: uuid, @body body: UpsertCorrectAnswerRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body body: CorrectAnswer;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ProblemDetail;
+      }
+    | QuestionNotFoundResponse
     | ProblemDetail
     | {
         @statusCode statusCode: 401;
@@ -200,13 +388,28 @@ interface Questions {
   // Answers Sub-resources
   // -----------------------
 
-  @doc("Get all answers for a specific question. Requires EXPERIMENTER or ADMIN. Results are ordered by creation time descending.")
+  @doc("List answers for a specific question. Requires EXPERIMENTER or ADMIN. Results include grading status and are ordered by creation time descending.")
   @route("/{id}/answers")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  listAnswers(@path id: uuid):
-    | Answer[]
-    | NotFound
+  listAnswers(
+    @path id: uuid,
+    @query @minValue(1) page?: int32 = 1,
+
+    @query
+    @minValue(1)
+    @maxValue(100)
+    pageSize?: int32 = 20,
+  ):
+    | {
+        @statusCode statusCode: 200;
+        @body body: PaginatedAnswersResponse;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ProblemDetail;
+      }
+    | QuestionNotFoundResponse
     | ProblemDetail
     | {
         @statusCode statusCode: 401;
@@ -217,7 +420,7 @@ interface Questions {
         @body error: SciEdu.Forbidden;
       };
 
-  @doc("Submit an answer for a specific question")
+  @doc("Submit an answer in the student's active experiment. The question must be reachable through an assigned published course. AUTOMATIC CHOICE answers are graded and persisted in the same transaction, but correctness is not included in this response. Duplicate submissions within an experiment return 409.")
   @route("/{id}/answers")
   @post
   @useAuth(SciEdu.Auth.SessionCookieAuth)
@@ -226,11 +429,39 @@ interface Questions {
         @statusCode statusCode: 201;
         @body answer: Answer;
       }
-    | Conflict
-    | NotFound
+    | {
+        @statusCode statusCode: 400;
+        @body error: ProblemDetail;
+      }
+    | AnswerConflictResponse
+    | QuestionNotFoundResponse
     | ProblemDetail
     | {
         @statusCode statusCode: 401;
         @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      };
+
+  @doc("Get a persisted grading result without recalculating it. Students may only access their own result. For students, isCorrect is omitted when showScore is false. A result graded against an older correct-answer version is returned as PENDING.")
+  @route("/{questionId}/answers/{answerId}/result")
+  @get
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  getAnswerResult(@path questionId: uuid, @path answerId: uuid):
+    | {
+        @statusCode statusCode: 200;
+        @body body: AnswerResult;
+      }
+    | QuestionNotFoundResponse
+    | ProblemDetail
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
       };
 }
