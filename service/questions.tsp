@@ -37,11 +37,17 @@ enum GradingMethod {
 }
 
 /**
- * Lifecycle state of the background regrade triggered by a correct-answer update.
+ * Whether every automatically gradable stored submission has an answer result
+ * evaluated against the current correct-answer version.
  */
-enum RegradeStatus {
+enum AnswerResultSyncStatus {
+  @doc("At least one eligible submission has no result for the current correct-answer version.")
   PENDING: "PENDING",
-  COMPLETED: "COMPLETED",
+
+  @doc("Every eligible submission has a result for the current correct-answer version. This also applies when no eligible submissions exist.")
+  SYNCED: "SYNCED",
+
+  @doc("Synchronization retries were exhausted while at least one eligible result remains unsynchronized.")
   FAILED: "FAILED",
 }
 
@@ -142,7 +148,9 @@ model CorrectAnswerBase {
   @minValue(1)
   version: int64;
 
-  regradeStatus: RegradeStatus;
+  @doc("Whether all automatically gradable stored submissions have results evaluated against this version.")
+  answerResultSyncStatus: AnswerResultSyncStatus;
+
   updatedAt: utcDateTime;
 }
 
@@ -160,7 +168,8 @@ model TextCorrectAnswer extends CorrectAnswerBase {
 }
 
 /**
- * Stored correct answer. This model is only exposed to EXPERIMENTER and ADMIN.
+ * Question-global stored correct answer. This model is only exposed to
+ * EXPERIMENTER and ADMIN.
  */
 @discriminated(#{ envelope: "none", discriminatorPropertyName: "type" })
 union CorrectAnswer {
@@ -169,7 +178,9 @@ union CorrectAnswer {
 }
 
 /**
- * Answer submitted by a student (maps to questions_users_answers table)
+ * Answer submitted by a student (maps to questions_users_answers table). Each
+ * answer belongs to exactly one question, user, and experiment. A user may
+ * submit another answer to the same question in a different experiment.
  */
 model Answer {
   @doc("Answer ID")
@@ -219,7 +230,7 @@ model AnswerWithResult {
   gradingStatus: GradingStatus;
   gradingMethod?: GradingMethod;
 
-  @doc("Whether the submitted answer is correct. Omitted while grading is pending or failed, or when the result uses an outdated correct-answer version.")
+  @doc("Whether the submitted answer is correct. Omitted while grading is pending or failed, or when an automatically graded result uses an outdated correct-answer version. MANUAL results are not invalidated by correct-answer updates.")
   isCorrect?: boolean;
 
   gradedAt?: utcDateTime;
@@ -242,6 +253,15 @@ model QuestionNotFoundResponse {
 model AnswerConflictResponse {
   @statusCode statusCode: 409;
   @body error: Conflict;
+}
+
+/**
+ * The experiment does not exist, or the question is not reachable through a
+ * course assigned to the experiment.
+ */
+model AnswerScopeNotFoundResponse {
+  @statusCode statusCode: 404;
+  @body error: NotFound;
 }
 
 /**
@@ -340,7 +360,7 @@ interface Questions {
   // Correct Answer Sub-resource
   // -----------------------
 
-  @doc("Get the stored correct answer. Requires EXPERIMENTER or ADMIN. This endpoint never releases correct answers to students.")
+  @doc("Get the question-global stored correct answer. Requires EXPERIMENTER or ADMIN. This endpoint never releases correct answers to students.")
   @route("/{id}/correct-answer")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
@@ -360,7 +380,12 @@ interface Questions {
         @body error: SciEdu.Forbidden;
       };
 
-  @doc("Create or fully replace the correct answer. Requires EXPERIMENTER or ADMIN. Identical updates are idempotent. A changed answer increments its version and schedules background regrading.")
+  @doc("""
+    Create or fully replace the question-global correct answer. Requires EXPERIMENTER or ADMIN.
+    The first correct answer uses version 1. A changed answer increments the version and synchronizes every automatically gradable stored submission across experiments. The status is SYNCED immediately when no eligible submissions exist; otherwise it is PENDING until every eligible result uses the current version.
+    An identical update does not increment the version or enqueue duplicate work. If the current status is FAILED, an identical update retries only the missing synchronization work and changes the status to PENDING. Completion of work for an older version must not overwrite the status of a newer version.
+    Currently, eligible submissions are CHOICE answers from AUTOMATIC experiments. MANUAL results are not invalidated by a correct-answer update. Future automatically graded methods, including LLM grading, are also eligible.
+    """)
   @route("/{id}/correct-answer")
   @put
   @useAuth(SciEdu.Auth.SessionCookieAuth)
@@ -388,12 +413,17 @@ interface Questions {
   // Answers Sub-resources
   // -----------------------
 
-  @doc("List answers for a specific question. Requires EXPERIMENTER or ADMIN. Results include grading status and are ordered by creation time descending.")
+  @doc("List answers for a specific question within one experiment. Requires EXPERIMENTER or ADMIN. The question must be reachable through a course assigned to the experiment. Results include grading status and are ordered by creation time descending.")
   @route("/{id}/answers")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
   listAnswers(
     @path id: uuid,
+
+    @doc("Experiment whose submissions are listed.")
+    @query
+    experimentId: uuid,
+
     @query @minValue(1) page?: int32 = 1,
 
     @query
@@ -409,7 +439,7 @@ interface Questions {
         @statusCode statusCode: 400;
         @body error: ProblemDetail;
       }
-    | QuestionNotFoundResponse
+    | AnswerScopeNotFoundResponse
     | ProblemDetail
     | {
         @statusCode statusCode: 401;
@@ -420,7 +450,7 @@ interface Questions {
         @body error: SciEdu.Forbidden;
       };
 
-  @doc("Submit an answer in the student's active experiment. The question must be reachable through an assigned published course. AUTOMATIC CHOICE answers are graded and persisted in the same transaction, but correctness is not included in this response. Duplicate submissions within an experiment return 409.")
+  @doc("Submit an answer in the student's active experiment. The question must be reachable through an assigned published course. AUTOMATIC CHOICE answers are graded and persisted in the same transaction, but correctness is not included in this response. The same user may answer the question again in a different experiment; duplicate submissions within one experiment return 409.")
   @route("/{id}/answers")
   @post
   @useAuth(SciEdu.Auth.SessionCookieAuth)
@@ -445,7 +475,7 @@ interface Questions {
         @body error: SciEdu.Forbidden;
       };
 
-  @doc("Get a persisted grading result without recalculating it. Students may only access their own result. For students, isCorrect is omitted when showScore is false. A result graded against an older correct-answer version is returned as PENDING.")
+  @doc("Get a persisted grading result without recalculating it. Students may only access their own result. For students, isCorrect is omitted when showScore is false. An automatically graded result evaluated against an older correct-answer version is returned as PENDING; MANUAL results are not invalidated by correct-answer updates.")
   @route("/{questionId}/answers/{answerId}/result")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
