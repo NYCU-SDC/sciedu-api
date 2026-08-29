@@ -2497,14 +2497,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Unauthorized'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
       security:
@@ -2537,14 +2541,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
       requestBody:
@@ -2579,14 +2587,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
       security:
@@ -2594,22 +2606,52 @@ paths:
   /api/questions/{id}/answers:
     get:
       operationId: Questions_listAnswers
-      description: Get all answers for a specific question. Requires EXPERIMENTER or ADMIN. Results are ordered by creation time descending.
+      description: List answers for a specific question within one experiment. Requires EXPERIMENTER or ADMIN. The question must be reachable through a course assigned to the experiment. Results include grading status and are ordered by creation time descending.
       parameters:
         - name: id
           in: path
           required: true
           schema:
             $ref: '#/components/schemas/uuid'
+        - name: experimentId
+          in: query
+          required: true
+          description: Experiment whose submissions are listed.
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
       responses:
         '200':
           description: The request has succeeded.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Questions.Answer'
+                $ref: '#/components/schemas/Questions.PaginatedAnswersResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Access is unauthorized.
           content:
@@ -2622,21 +2664,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: |-
+            The experiment does not exist, or the question is not reachable through a
+            course assigned to the experiment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
       security:
         - ApiKeyAuth: []
     post:
       operationId: Questions_submitAnswer
-      description: Submit an answer for a specific question
+      description: Submit an answer in the student's active experiment. The question must be reachable through an assigned published course. AUTOMATIC CHOICE answers are graded and persisted in the same transaction, but correctness is not included in this response. The same user may answer the question again in a different experiment; duplicate submissions within one experiment return 409.
       parameters:
         - name: id
           in: path
@@ -2650,21 +2698,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Questions.Answer'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Access is unauthorized.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
         default:
           description: An unexpected error response.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/Conflict'
-                  - $ref: '#/components/schemas/NotFound'
-                  - $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Questions
       requestBody:
@@ -2673,6 +2742,161 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Questions.SubmitAnswerRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/questions/{id}/correct-answer:
+    get:
+      operationId: Questions_getCorrectAnswer
+      description: Get the question-global stored correct answer. Requires EXPERIMENTER or ADMIN. This endpoint never releases correct answers to students.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.CorrectAnswer'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+      security:
+        - ApiKeyAuth: []
+    put:
+      operationId: Questions_upsertCorrectAnswer
+      description: |-
+        Create or fully replace the question-global correct answer. Requires EXPERIMENTER or ADMIN.
+        The first correct answer uses version 1. A changed answer increments the version and synchronizes every automatically gradable stored submission across experiments. The status is SYNCED immediately when no eligible submissions exist; otherwise it is PENDING until every eligible result uses the current version.
+        An identical update does not increment the version or enqueue duplicate work. If the current status is FAILED, an identical update retries only the missing synchronization work and changes the status to PENDING. Completion of work for an older version must not overwrite the status of a newer version.
+        Currently, eligible submissions are CHOICE answers from AUTOMATIC experiments. MANUAL results are not invalidated by a correct-answer update. Future automatically graded methods, including LLM grading, are also eligible.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.CorrectAnswer'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Questions.UpsertCorrectAnswerRequest'
+      security:
+        - ApiKeyAuth: []
+  /api/questions/{questionId}/answers/{answerId}/result:
+    get:
+      operationId: Questions_getAnswerResult
+      description: Get a persisted grading result without recalculating it. Students may only access their own result. For students, isCorrect is omitted when showScore is false. An automatically graded result evaluated against an older correct-answer version is returned as PENDING; MANUAL results are not invalidated by correct-answer updates.
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: answerId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions.AnswerResult'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Questions
       security:
         - ApiKeyAuth: []
   /api/users:
@@ -3870,6 +4094,7 @@ components:
       required:
         - id
         - questionId
+        - experimentId
         - userId
         - createdAt
       properties:
@@ -3881,6 +4106,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/uuid'
           description: ID of corresponding question
+        experimentId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: ID of the active experiment in which the answer was submitted
         userId:
           allOf:
             - $ref: '#/components/schemas/uuid'
@@ -3896,7 +4125,155 @@ components:
           type: string
           format: date-time
           description: Answer creation time
-      description: Answer submitted by a student (maps to questions_users_answers table)
+      description: |-
+        Answer submitted by a student (maps to questions_users_answers table). Each
+        answer belongs to exactly one question, user, and experiment. A user may
+        submit another answer to the same question in a different experiment.
+    Questions.AnswerResult:
+      type: object
+      required:
+        - answerId
+        - questionId
+        - status
+        - resultVisible
+      properties:
+        answerId:
+          $ref: '#/components/schemas/uuid'
+        questionId:
+          $ref: '#/components/schemas/uuid'
+        status:
+          $ref: '#/components/schemas/Questions.GradingStatus'
+        method:
+          $ref: '#/components/schemas/Questions.GradingMethod'
+        resultVisible:
+          type: boolean
+          description: Whether the current caller may see the correctness result
+        isCorrect:
+          type: boolean
+        gradedAt:
+          type: string
+          format: date-time
+      description: |-
+        Persisted grading result for an answer. isCorrect is omitted while grading is
+        pending or failed, and when the caller is not allowed to see scores.
+    Questions.AnswerResultSyncStatus:
+      type: string
+      enum:
+        - PENDING
+        - SYNCED
+        - FAILED
+      description: |-
+        Whether every automatically gradable stored submission has an answer result
+        evaluated against the current correct-answer version.
+    Questions.AnswerWithResult:
+      type: object
+      required:
+        - id
+        - questionId
+        - experimentId
+        - userId
+        - createdAt
+        - gradingStatus
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Answer ID
+        questionId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: ID of corresponding question
+        experimentId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: ID of the active experiment in which the answer was submitted
+        userId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Opaque ID of the user who submitted the answer
+        selectedOptionId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: The ID of the option which the user chose
+        textAnswer:
+          type: string
+          description: Textual answer (for TEXT type only)
+        createdAt:
+          type: string
+          format: date-time
+          description: Answer creation time
+        gradingStatus:
+          $ref: '#/components/schemas/Questions.GradingStatus'
+        gradingMethod:
+          $ref: '#/components/schemas/Questions.GradingMethod'
+        isCorrect:
+          type: boolean
+          description: Whether the submitted answer is correct. Omitted while grading is pending or failed, or when an automatically graded result uses an outdated correct-answer version. MANUAL results are not invalidated by correct-answer updates.
+        gradedAt:
+          type: string
+          format: date-time
+      description: Management view of a submitted answer and its grading result.
+    Questions.ChoiceCorrectAnswer:
+      type: object
+      required:
+        - type
+        - selectedOptionId
+      properties:
+        type:
+          type: string
+          enum:
+            - CHOICE
+        selectedOptionId:
+          $ref: '#/components/schemas/uuid'
+      allOf:
+        - $ref: '#/components/schemas/Questions.CorrectAnswerBase'
+    Questions.ChoiceCorrectAnswerRequest:
+      type: object
+      required:
+        - type
+        - selectedOptionId
+      properties:
+        type:
+          type: string
+          enum:
+            - CHOICE
+        selectedOptionId:
+          $ref: '#/components/schemas/uuid'
+      description: Payload for storing the correct option of a CHOICE question.
+    Questions.CorrectAnswer:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/Questions.ChoiceCorrectAnswer'
+        - $ref: '#/components/schemas/Questions.TextCorrectAnswer'
+      discriminator:
+        propertyName: type
+        mapping:
+          CHOICE: '#/components/schemas/Questions.ChoiceCorrectAnswer'
+          TEXT: '#/components/schemas/Questions.TextCorrectAnswer'
+      description: |-
+        Question-global stored correct answer. This model is only exposed to
+        EXPERIMENTER and ADMIN.
+    Questions.CorrectAnswerBase:
+      type: object
+      required:
+        - questionId
+        - version
+        - answerResultSyncStatus
+        - updatedAt
+      properties:
+        questionId:
+          $ref: '#/components/schemas/uuid'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        answerResultSyncStatus:
+          allOf:
+            - $ref: '#/components/schemas/Questions.AnswerResultSyncStatus'
+          description: Whether all automatically gradable stored submissions have results evaluated against this version.
+        updatedAt:
+          type: string
+          format: date-time
     Questions.CreateUpdateQuestionRequest:
       type: object
       required:
@@ -3932,6 +4309,20 @@ components:
               - content
           description: List of options. For CHOICE type, this field is required and cannot be empty.
       description: Payload for creating or updating a question
+    Questions.GradingMethod:
+      type: string
+      enum:
+        - DETERMINISTIC
+        - MANUAL
+        - LLM
+      description: Mechanism used to grade an answer. LLM is reserved for future text grading.
+    Questions.GradingStatus:
+      type: string
+      enum:
+        - PENDING
+        - GRADED
+        - FAILED
+      description: Lifecycle state of an answer's grading result.
     Questions.Option:
       type: object
       required:
@@ -3954,6 +4345,34 @@ components:
           maxLength: 1024
           description: Option content
       description: Option model (maps to options table)
+    Questions.PaginatedAnswersResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Questions.AnswerWithResult'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
     Questions.Question:
       type: object
       required:
@@ -3999,6 +4418,48 @@ components:
           maxLength: 2000
           description: Textual answer (if it is a text-based question)
       description: Payload for submitting an answer
+    Questions.TextCorrectAnswer:
+      type: object
+      required:
+        - type
+        - referenceAnswer
+      properties:
+        type:
+          type: string
+          enum:
+            - TEXT
+        referenceAnswer:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      allOf:
+        - $ref: '#/components/schemas/Questions.CorrectAnswerBase'
+    Questions.TextCorrectAnswerRequest:
+      type: object
+      required:
+        - type
+        - referenceAnswer
+      properties:
+        type:
+          type: string
+          enum:
+            - TEXT
+        referenceAnswer:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      description: Payload for storing a reference answer for future TEXT grading.
+    Questions.UpsertCorrectAnswerRequest:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/Questions.ChoiceCorrectAnswerRequest'
+        - $ref: '#/components/schemas/Questions.TextCorrectAnswerRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          CHOICE: '#/components/schemas/Questions.ChoiceCorrectAnswerRequest'
+          TEXT: '#/components/schemas/Questions.TextCorrectAnswerRequest'
+      description: Correct-answer payload. The discriminator must match the question type.
     Unauthorized:
       type: object
       required:
