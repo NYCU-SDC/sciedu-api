@@ -11,6 +11,7 @@ import "./service/users.tsp";
 import "./service/courses.tsp";
 import "./service/pages.tsp";
 import "./service/experiments.tsp";
+import "./service/page-visits.tsp";
 
 using Http;
 using Versioning;
