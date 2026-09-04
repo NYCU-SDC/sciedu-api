@@ -12,6 +12,7 @@ tags:
   - name: Courses
   - name: Pages
   - name: Experiments
+  - name: Page Visits
 paths:
   /api/auth/callback:
     get:
@@ -1971,6 +1972,214 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Auth
+  /api/page-visits:
+    post:
+      operationId: PageVisits_enter
+      description: |-
+        Record that the authenticated student entered a course page. The server
+        records `enteredAt`; clients cannot provide timestamps.
+
+        Before creating the visit, the server closes any open visit belonging to
+        the same student and `clientSessionId`, using the new visit's `enteredAt`
+        as the old visit's `leftAt`. The close and create operations are atomic.
+
+        `Idempotency-Key` is scoped to the authenticated student. Replaying the
+        same key with the same request returns the originally created visit and
+        must not close or create another visit. Reusing it with a different request
+        returns a conflict.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-generated UUID used to make retries safe
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageVisits.PageVisit'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Page Visits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageVisits.CreatePageVisitRequest'
+      security:
+        - ApiKeyAuth: []
+    get:
+      operationId: PageVisits_list
+      description: |-
+        List page visit records for research and administration. Only users with
+        the EXPERIMENTER or ADMIN role may call this operation. Results are ordered
+        by `enteredAt` descending.
+      parameters:
+        - name: studentId
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: courseId
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: pageId
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: clientSessionId
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PageVisits.PageVisitStatus'
+          explode: false
+        - name: enteredFrom
+          in: query
+          required: false
+          description: Include visits entered at or after this timestamp
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: enteredBefore
+          in: query
+          required: false
+          description: Include visits entered before this timestamp
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          description: Number of items per page. Maximum value is 100.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageVisits.PaginatedPageVisitResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Page Visits
+      security:
+        - ApiKeyAuth: []
+  /api/page-visits/{id}/leave:
+    post:
+      operationId: PageVisits_leave
+      description: |-
+        Record that the authenticated student left one of their page visits. The
+        server records `leftAt`; clients cannot provide timestamps. This operation
+        is idempotent: if the visit was already closed explicitly or by a later
+        enter request, its original `leftAt` is preserved and returned.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageVisits.PageVisit'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Page Visits
+      security:
+        - ApiKeyAuth: []
   /api/pages/{id}:
     get:
       operationId: Pages_get
@@ -3912,6 +4121,100 @@ components:
           type: string
       allOf:
         - $ref: '#/components/schemas/ProblemDetail'
+    PageVisits.CreatePageVisitRequest:
+      type: object
+      required:
+        - courseId
+        - pageId
+        - clientSessionId
+      properties:
+        courseId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Course ID
+        pageId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Course page ID
+        clientSessionId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Client-generated ID that remains stable for one browser tab's course navigation flow
+      description: Request body for recording entry into a course page.
+    PageVisits.PageVisit:
+      type: object
+      required:
+        - id
+        - studentId
+        - courseId
+        - pageId
+        - clientSessionId
+        - enteredAt
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Page visit ID
+        studentId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Authenticated student ID
+        courseId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Course ID
+        pageId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Course page ID
+        clientSessionId:
+          allOf:
+            - $ref: '#/components/schemas/uuid'
+          description: Client-generated ID that identifies one browser tab's course navigation flow
+        enteredAt:
+          type: string
+          format: date-time
+          description: Server timestamp recorded when the student entered the page
+        leftAt:
+          type: string
+          format: date-time
+          description: Server timestamp recorded when the student left the page; omitted while the visit is open
+      description: A period during which a student visited a course page.
+    PageVisits.PageVisitStatus:
+      type: string
+      enum:
+        - OPEN
+        - CLOSED
+      description: Whether a page visit is still open or has a recorded leave time.
+    PageVisits.PaginatedPageVisitResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageVisits.PageVisit'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+      description: Paginated page visit records.
     Pages.CreatePageRequest:
       type: object
       required:
