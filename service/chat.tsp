@@ -172,6 +172,15 @@ namespace Chats {
     @path chatId: uuid,
     @body body: {
       content: string;
+
+      @doc("""
+        Optional model id to use for this completion. Must be one of the
+        server's configured allowed models; other values are rejected with a
+        400. When omitted, the server default is used. Known ids:
+        `gpt-oss-120b`, `gemma-4-31B-it`.
+        """)
+      `model`?: string;
+
       previousID?: uuid;
     },
   ):
