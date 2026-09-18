@@ -68,6 +68,21 @@ model Character {
   role: string;
 }
 
+@doc("A single invocation of a character while producing an agentic response.")
+model AgentRun {
+  @doc("Stable run identifier within the message.")
+  id: string;
+
+  @doc("ID of the character or agent invoked for this run.")
+  agent: string;
+
+  @doc("ID of the agent run that invoked this run, if it was nested.")
+  parentRunID?: string;
+
+  @doc("Identifier of the action that summoned this run.")
+  summonedBy?: string;
+}
+
 @doc("The kind of content represented by a message part.")
 enum PartType {
   Text: "text",
@@ -86,6 +101,9 @@ model MessagePart {
 
   @doc("ID of the character or agent that produced this part.")
   agent: string;
+
+  @doc("ID of the agent run that produced this part.")
+  agentRunID?: string;
 
   @doc("Whether the part is internal and should normally be hidden from users.")
   internal?: boolean;
@@ -114,11 +132,21 @@ model Message {
   @doc("Message ID")
   id: uuid;
 
-  @doc("Message content")
+  @doc("""
+    Plain-text representation of the message. For an agentic response, this is
+    formed by concatenating the `text` of every non-internal `text` part in
+    `parts` array order without inserting separators.
+    """)
   content: string;
 
   @doc("Structured agentic content. Omitted for messages without agentic parts.")
   parts?: MessagePart[];
+
+  @doc("Snapshot of the characters used by the agentic response.")
+  characters?: Character[];
+
+  @doc("Ordered snapshot of agent invocations, with one entry per run.")
+  agentRuns?: AgentRun[];
 
   @doc("Role of the message author")
   role: MessageRole;
