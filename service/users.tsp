@@ -17,6 +17,11 @@ enum UserRole {
   ADMIN: "ADMIN",
 }
 
+/** A student's grade level, from elementary grade 1 through secondary grade 12. */
+@minValue(1)
+@maxValue(12)
+scalar StudentGrade extends int32;
+
 /** A SciEdu user profile. */
 model User {
   id: uuid;
@@ -24,6 +29,10 @@ model User {
   name: string;
   avatarUrl?: string;
   roles: UserRole[];
+
+  @doc("The student's grade level. Omitted when the user is not a STUDENT or has not set a grade.")
+  grade?: StudentGrade;
+
   createdAt: utcDateTime;
   updatedAt: utcDateTime;
 }
@@ -45,9 +54,19 @@ model UpdateUserRolesRequest {
   roles: UserRole[];
 }
 
+/** Sets a student's grade. A grade can be replaced but cannot be cleared. */
+model UpdateStudentGradeRequest {
+  grade: StudentGrade;
+}
+
 model UserNotFoundResponse {
   @statusCode statusCode: 404;
   @body error: SciEdu.NotFound;
+}
+
+model UserConflictResponse {
+  @statusCode statusCode: 409;
+  @body error: SciEdu.Conflict;
 }
 
 // -----------------------------------------------------------------------------
@@ -68,6 +87,29 @@ interface Users {
     @statusCode statusCode: 401;
     @body error: SciEdu.Unauthorized;
   } | ProblemDetail;
+
+  @doc("Idempotently set the currently authenticated student's grade. Requires the STUDENT role. The grade can be replaced but cannot be cleared.")
+  @put
+  @route("/me/grade")
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  updateMyGrade(@body body: UpdateStudentGradeRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body body: User;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ProblemDetail;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      }
+    | ProblemDetail;
 
   @doc("List users. Requires ADMIN or EXPERIMENTER. Results are ordered by name, then ID.")
   @get
@@ -180,5 +222,30 @@ interface Users {
         @body error: ProblemDetail;
       }
     | UserNotFoundResponse
+    | ProblemDetail;
+
+  @doc("Idempotently set a student's grade. Requires ADMIN. The target must have the STUDENT role and may be the caller. The grade can be replaced but cannot be cleared.")
+  @put
+  @route("/{id}/grade")
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  updateGrade(@path id: uuid, @body body: UpdateStudentGradeRequest):
+    | {
+        @statusCode statusCode: 200;
+        @body body: User;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ProblemDetail;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: SciEdu.Unauthorized;
+      }
+    | {
+        @statusCode statusCode: 403;
+        @body error: SciEdu.Forbidden;
+      }
+    | UserNotFoundResponse
+    | UserConflictResponse
     | ProblemDetail;
 }
