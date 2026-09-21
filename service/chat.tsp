@@ -56,13 +56,97 @@ enum MessageStatus {
   Failed: "failed",
 }
 
+@doc("A character participating in an agentic response.")
+model Character {
+  @doc("Stable character identifier used by message parts and stream events.")
+  id: string;
+
+  @doc("Human-readable character name.")
+  displayName: string;
+
+  @doc("Character role presented to the user.")
+  role: string;
+}
+
+@doc("A single invocation of a character while producing an agentic response.")
+model AgentRun {
+  @doc("Stable run identifier within the message.")
+  id: string;
+
+  @doc("ID of the character or agent invoked for this run.")
+  agent: string;
+
+  @doc("ID of the agent run that invoked this run, if it was nested.")
+  parentRunID?: string;
+
+  @doc("Identifier of the action that summoned this run.")
+  summonedBy?: string;
+}
+
+@doc("The kind of content represented by a message part.")
+enum PartType {
+  Text: "text",
+  Reasoning: "reasoning",
+  ToolCall: "tool_call",
+  ToolResult: "tool_result",
+}
+
+@doc("A structured part of an agentic assistant message.")
+model MessagePart {
+  @doc("Part kind.")
+  type: PartType;
+
+  @doc("Stable part identifier.")
+  id: string;
+
+  @doc("ID of the character or agent that produced this part.")
+  agent: string;
+
+  @doc("ID of the agent run that produced this part.")
+  agentRunID?: string;
+
+  @doc("Whether the part is internal and should normally be hidden from users.")
+  internal?: boolean;
+
+  @doc("Text content for text and reasoning parts.")
+  text?: string;
+
+  @doc("Tool-call identifier shared by the corresponding call and result parts.")
+  tool_call_id?: string;
+
+  @doc("Tool name for a tool-call part.")
+  name?: string;
+
+  @doc("JSON arguments supplied to a tool call.")
+  arguments?: unknown;
+
+  @doc("Tool execution status.")
+  status?: string;
+
+  @doc("JSON content returned by a tool.")
+  content?: unknown;
+}
+
 @doc("A single message in a chat session.")
 model Message {
   @doc("Message ID")
   id: uuid;
 
-  @doc("Message content")
+  @doc("""
+    Plain-text representation of the message. For an agentic response, this is
+    formed by concatenating the `text` of every non-internal `text` part in
+    `parts` array order without inserting separators.
+    """)
   content: string;
+
+  @doc("Structured agentic content. Omitted for messages without agentic parts.")
+  parts?: MessagePart[];
+
+  @doc("Snapshot of the characters used by the agentic response.")
+  characters?: Character[];
+
+  @doc("Ordered snapshot of agent invocations, with one entry per run.")
+  agentRuns?: AgentRun[];
 
   @doc("Role of the message author")
   role: MessageRole;
@@ -77,13 +161,72 @@ model Message {
   createdAt: utcDateTime;
 }
 
-@doc("A content delta chunk from the SSE stream.")
-model StreamDelta {
-  @doc("The streamed content fragment. Empty when `isFinished` is true.")
-  delta: string;
+@doc("Announces the characters participating in the response.")
+model CastEvent {
+  type: "cast";
+  characters: Character[];
+}
 
-  @doc("Whether this chunk marks the end of the assistant reply stream.")
-  isFinished: boolean;
+@doc("Signals that an agent has started producing parts.")
+model AgentStartEvent {
+  type: "agent_start";
+  agent: string;
+  parent?: string;
+  summonedBy?: string;
+}
+
+@doc("Starts a structured message part at the specified zero-based index.")
+model PartStartEvent {
+  type: "part_start";
+  index: int32;
+  part: MessagePart;
+}
+
+@doc("Appends incremental content to the part at the specified index.")
+model DeltaEvent {
+  type: "delta";
+  index: int32;
+  delta: string;
+}
+
+@doc("Completes a structured message part with its final snapshot.")
+model PartEndEvent {
+  type: "part_end";
+  index: int32;
+  part: MessagePart;
+}
+
+@doc("Signals that an agent has finished producing parts.")
+model AgentEndEvent {
+  type: "agent_end";
+  agent: string;
+}
+
+@doc("Terminates a successfully completed stream.")
+model DoneEvent {
+  type: "done";
+  finishReason?: string;
+  status?: MessageStatus;
+}
+
+@doc("Terminates a failed stream.")
+model ErrorEvent {
+  type: "error";
+  error: string;
+  code: string;
+}
+
+@doc("A typed event delivered in the data field of an unnamed SSE frame.")
+@discriminated(#{ envelope: "none", discriminatorPropertyName: "type" })
+union StreamEvent {
+  cast: CastEvent,
+  agent_start: AgentStartEvent,
+  part_start: PartStartEvent,
+  delta: DeltaEvent,
+  part_end: PartEndEvent,
+  agent_end: AgentEndEvent,
+  done: DoneEvent,
+  error: ErrorEvent,
 }
 
 // -----------------------------------------------------------------------------
@@ -173,6 +316,7 @@ namespace Chats {
     @body body: {
       content: string;
       previousID?: uuid;
+      preset?: string;
     },
   ):
     | {
@@ -204,7 +348,12 @@ namespace Chats {
 
   @route("/stream/{messageId}")
   namespace Stream {
-    @doc("Stream the assistant reply for a given message using Server-Sent Events. Returns 404 if the messageId does not exist, 400 if the message has no reply pending yet.")
+    @doc("""
+      Stream the assistant reply for a given message using unnamed Server-Sent
+      Event frames (`data: <json>`). The `done` and `error` event types terminate
+      the stream. Returns 404 if the messageId does not exist, or 400 if the
+      message has no reply pending yet.
+      """)
     @get
     @useAuth(SciEdu.Auth.SessionCookieAuth)
     op get(@path messageId: uuid):
@@ -213,7 +362,7 @@ namespace Chats {
           @header("Content-Type") contentType: "text/event-stream";
           @header("Cache-Control") cacheControl: "no-cache";
           @header("Connection") connection: "keep-alive";
-          @body body: StreamDelta;
+          @body body: StreamEvent;
         }
       | {
           @statusCode statusCode: 400;
