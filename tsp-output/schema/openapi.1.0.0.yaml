@@ -245,7 +245,11 @@ paths:
   /api/chat/stream/{messageId}:
     get:
       operationId: Stream_get
-      description: Stream the assistant reply for a given message using Server-Sent Events. Returns 404 if the messageId does not exist, 400 if the message has no reply pending yet.
+      description: |-
+        Stream the assistant reply for a given message using unnamed Server-Sent
+        Event frames (`data: <json>`). The `done` and `error` event types terminate
+        the stream. Returns 404 if the messageId does not exist, or 400 if the
+        message has no reply pending yet.
       parameters:
         - name: messageId
           in: path
@@ -271,7 +275,7 @@ paths:
           content:
             text/event-stream:
               schema:
-                $ref: '#/components/schemas/Chat.StreamDelta'
+                $ref: '#/components/schemas/Chat.StreamEvent'
         '400':
           description: The server could not understand the request due to invalid syntax.
           content:
@@ -452,6 +456,8 @@ paths:
                   type: string
                 previousID:
                   $ref: '#/components/schemas/uuid'
+                preset:
+                  type: string
               required:
                 - content
       security:
@@ -3393,6 +3399,87 @@ components:
       description: |-
         Authenticated session metadata. Session tokens are issued and refreshed through
         HttpOnly cookies and are intentionally not exposed in response bodies.
+    Chat.AgentEndEvent:
+      type: object
+      required:
+        - type
+        - agent
+      properties:
+        type:
+          type: string
+          enum:
+            - agent_end
+        agent:
+          type: string
+      description: Signals that an agent has finished producing parts.
+    Chat.AgentRun:
+      type: object
+      required:
+        - id
+        - agent
+      properties:
+        id:
+          type: string
+          description: Stable run identifier within the message.
+        agent:
+          type: string
+          description: ID of the character or agent invoked for this run.
+        parentRunID:
+          type: string
+          description: ID of the agent run that invoked this run, if it was nested.
+        summonedBy:
+          type: string
+          description: Identifier of the action that summoned this run.
+      description: A single invocation of a character while producing an agentic response.
+    Chat.AgentStartEvent:
+      type: object
+      required:
+        - type
+        - agent
+      properties:
+        type:
+          type: string
+          enum:
+            - agent_start
+        agent:
+          type: string
+        parent:
+          type: string
+        summonedBy:
+          type: string
+      description: Signals that an agent has started producing parts.
+    Chat.CastEvent:
+      type: object
+      required:
+        - type
+        - characters
+      properties:
+        type:
+          type: string
+          enum:
+            - cast
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chat.Character'
+      description: Announces the characters participating in the response.
+    Chat.Character:
+      type: object
+      required:
+        - id
+        - displayName
+        - role
+      properties:
+        id:
+          type: string
+          description: Stable character identifier used by message parts and stream events.
+        displayName:
+          type: string
+          description: Human-readable character name.
+        role:
+          type: string
+          description: Character role presented to the user.
+      description: A character participating in an agentic response.
     Chat.Chat:
       type: object
       required:
@@ -3423,6 +3510,53 @@ components:
             appended to the chat. Used as the sort key for the chat history sidebar
             (most recently updated first).
       description: A chat session belonging to the authenticated user.
+    Chat.DeltaEvent:
+      type: object
+      required:
+        - type
+        - index
+        - delta
+      properties:
+        type:
+          type: string
+          enum:
+            - delta
+        index:
+          type: integer
+          format: int32
+        delta:
+          type: string
+      description: Appends incremental content to the part at the specified index.
+    Chat.DoneEvent:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - done
+        finishReason:
+          type: string
+        status:
+          $ref: '#/components/schemas/Chat.MessageStatus'
+      description: Terminates a successfully completed stream.
+    Chat.ErrorEvent:
+      type: object
+      required:
+        - type
+        - error
+        - code
+      properties:
+        type:
+          type: string
+          enum:
+            - error
+        error:
+          type: string
+        code:
+          type: string
+      description: Terminates a failed stream.
     Chat.Message:
       type: object
       required:
@@ -3438,7 +3572,25 @@ components:
           description: Message ID
         content:
           type: string
-          description: Message content
+          description: |-
+            Plain-text representation of the message. For an agentic response, this is
+            formed by concatenating the `text` of every non-internal `text` part in
+            `parts` array order without inserting separators.
+        parts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chat.MessagePart'
+          description: Structured agentic content. Omitted for messages without agentic parts.
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chat.Character'
+          description: Snapshot of the characters used by the agentic response.
+        agentRuns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chat.AgentRun'
+          description: Ordered snapshot of agent invocations, with one entry per run.
         role:
           allOf:
             - $ref: '#/components/schemas/Chat.MessageRole'
@@ -3456,6 +3608,46 @@ components:
           format: date-time
           description: Timestamp when the message was created
       description: A single message in a chat session.
+    Chat.MessagePart:
+      type: object
+      required:
+        - type
+        - id
+        - agent
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/Chat.PartType'
+          description: Part kind.
+        id:
+          type: string
+          description: Stable part identifier.
+        agent:
+          type: string
+          description: ID of the character or agent that produced this part.
+        agentRunID:
+          type: string
+          description: ID of the agent run that produced this part.
+        internal:
+          type: boolean
+          description: Whether the part is internal and should normally be hidden from users.
+        text:
+          type: string
+          description: Text content for text and reasoning parts.
+        tool_call_id:
+          type: string
+          description: Tool-call identifier shared by the corresponding call and result parts.
+        name:
+          type: string
+          description: Tool name for a tool-call part.
+        arguments:
+          description: JSON arguments supplied to a tool call.
+        status:
+          type: string
+          description: Tool execution status.
+        content:
+          description: JSON content returned by a tool.
+      description: A structured part of an agentic assistant message.
     Chat.MessageRole:
       type: string
       enum:
@@ -3498,19 +3690,71 @@ components:
         hasNextPage:
           type: boolean
       description: Paginated list of the authenticated user's chats.
-    Chat.StreamDelta:
+    Chat.PartEndEvent:
       type: object
       required:
-        - delta
-        - isFinished
+        - type
+        - index
+        - part
       properties:
-        delta:
+        type:
           type: string
-          description: The streamed content fragment. Empty when `isFinished` is true.
-        isFinished:
-          type: boolean
-          description: Whether this chunk marks the end of the assistant reply stream.
-      description: A content delta chunk from the SSE stream.
+          enum:
+            - part_end
+        index:
+          type: integer
+          format: int32
+        part:
+          $ref: '#/components/schemas/Chat.MessagePart'
+      description: Completes a structured message part with its final snapshot.
+    Chat.PartStartEvent:
+      type: object
+      required:
+        - type
+        - index
+        - part
+      properties:
+        type:
+          type: string
+          enum:
+            - part_start
+        index:
+          type: integer
+          format: int32
+        part:
+          $ref: '#/components/schemas/Chat.MessagePart'
+      description: Starts a structured message part at the specified zero-based index.
+    Chat.PartType:
+      type: string
+      enum:
+        - text
+        - reasoning
+        - tool_call
+        - tool_result
+      description: The kind of content represented by a message part.
+    Chat.StreamEvent:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/Chat.CastEvent'
+        - $ref: '#/components/schemas/Chat.AgentStartEvent'
+        - $ref: '#/components/schemas/Chat.PartStartEvent'
+        - $ref: '#/components/schemas/Chat.DeltaEvent'
+        - $ref: '#/components/schemas/Chat.PartEndEvent'
+        - $ref: '#/components/schemas/Chat.AgentEndEvent'
+        - $ref: '#/components/schemas/Chat.DoneEvent'
+        - $ref: '#/components/schemas/Chat.ErrorEvent'
+      discriminator:
+        propertyName: type
+        mapping:
+          cast: '#/components/schemas/Chat.CastEvent'
+          agent_start: '#/components/schemas/Chat.AgentStartEvent'
+          part_start: '#/components/schemas/Chat.PartStartEvent'
+          delta: '#/components/schemas/Chat.DeltaEvent'
+          part_end: '#/components/schemas/Chat.PartEndEvent'
+          agent_end: '#/components/schemas/Chat.AgentEndEvent'
+          done: '#/components/schemas/Chat.DoneEvent'
+          error: '#/components/schemas/Chat.ErrorEvent'
+      description: A typed event delivered in the data field of an unnamed SSE frame.
     Conflict:
       type: object
       required:
