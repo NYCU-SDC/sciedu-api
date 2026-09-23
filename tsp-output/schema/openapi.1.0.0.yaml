@@ -13,6 +13,7 @@ tags:
   - name: Pages
   - name: Experiments
   - name: Page Visits
+  - name: Progress
 paths:
   /api/auth/callback:
     get:
@@ -2620,6 +2621,304 @@ paths:
         - Pages
       security:
         - ApiKeyAuth: []
+  /api/progress/me:
+    get:
+      operationId: Progress_me
+      description: |-
+        Return the authenticated student's progress for one course in their current
+        ACTIVE experiment. The course must be PUBLISHED and assigned to that
+        experiment. Pages are returned in current displayOrder. Returns 404 when no
+        current experiment or course exists, and 403 when the course is not published
+        or assigned to the current experiment.
+      parameters:
+        - name: courseId
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress.CourseProgressDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Progress
+      security:
+        - ApiKeyAuth: []
+  /api/progress/me/pages/{pageId}/completion:
+    put:
+      operationId: Progress_completePage
+      description: |-
+        Idempotently and irreversibly mark one page as completed by the authenticated
+        student in their current ACTIVE experiment. The page determines the course.
+        If the page has not been reached, it is marked reached at the same server
+        timestamp. This operation does not validate page blocks or answers. Replays
+        preserve the original timestamps and return the current complete course
+        progress. Returns 404 when no current experiment or page exists, and 403 when
+        the page is not accessible through an assigned, published course.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress.CourseProgressDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Progress
+      security:
+        - ApiKeyAuth: []
+  /api/progress/me/pages/{pageId}/reach:
+    put:
+      operationId: Progress_reachPage
+      description: |-
+        Idempotently mark one page as reached by the authenticated student in their
+        current ACTIVE experiment. The page determines the course. Only the target
+        page is marked; earlier pages are not changed. Replays preserve the original
+        reachedAt timestamp and return the current complete course progress. Returns
+        404 when no current experiment or page exists, and 403 when the page is not
+        accessible through an assigned, published course.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress.CourseProgressDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Progress
+      security:
+        - ApiKeyAuth: []
+  /api/progress/students:
+    get:
+      operationId: Progress_listStudents
+      description: |-
+        List every participant's progress for one course assigned to an experiment.
+        Requires EXPERIMENTER or ADMIN. Participants without progress are included.
+        Results are ordered by participant assignment time, then student ID. Returns
+        404 when the experiment or course does not exist, or the course is not
+        assigned to the experiment.
+      parameters:
+        - name: experimentId
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: courseId
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+          explode: false
+        - name: pageSize
+          in: query
+          required: false
+          description: Number of participants per page. Maximum value is 100.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress.PaginatedStudentCourseProgressResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Progress
+      security:
+        - ApiKeyAuth: []
+  /api/progress/students/{studentId}:
+    get:
+      operationId: Progress_student
+      description: |-
+        Return one participant's page-level progress for one course assigned to an
+        experiment. Requires EXPERIMENTER or ADMIN. Returns 404 when the experiment,
+        course, or student does not exist, when the course is not assigned to the
+        experiment, or when the student is not a participant in the experiment.
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+        - name: experimentId
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+        - name: courseId
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress.CourseProgressDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Progress
+      security:
+        - ApiKeyAuth: []
   /api/questions:
     get:
       operationId: Questions_list
@@ -4636,6 +4935,167 @@ components:
           type: string
           description: A URI reference that identifies the specific occurrence of the problem.
       description: Problem represents a problem detail as defined in RFC 9457. Backend implementation should use the `summer` package (github.com/NYCU-SDC/summer) for constructing and returning these errors.
+    Progress.CourseProgressDetail:
+      type: object
+      required:
+        - pages
+      properties:
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Progress.PageProgress'
+      allOf:
+        - $ref: '#/components/schemas/Progress.CourseProgressSummary'
+      description: Course progress with every current page listed in display order.
+    Progress.CourseProgressStatus:
+      type: string
+      enum:
+        - NOT_STARTED
+        - IN_PROGRESS
+        - COMPLETED
+      description: The student's progress state for a course in one experiment.
+    Progress.CourseProgressSummary:
+      type: object
+      required:
+        - studentId
+        - experimentId
+        - courseId
+        - status
+        - reachedPageCount
+        - completedPageCount
+        - totalPageCount
+        - completionPercentage
+      properties:
+        studentId:
+          $ref: '#/components/schemas/uuid'
+        experimentId:
+          $ref: '#/components/schemas/uuid'
+        courseId:
+          $ref: '#/components/schemas/uuid'
+        status:
+          $ref: '#/components/schemas/Progress.CourseProgressStatus'
+        highestReachedPage:
+          allOf:
+            - $ref: '#/components/schemas/Progress.ProgressPageReference'
+          description: Reached current page with the greatest displayOrder; omitted when no current page has been reached.
+        reachedPageCount:
+          type: integer
+          format: int32
+          minimum: 0
+        completedPageCount:
+          type: integer
+          format: int32
+          minimum: 0
+        totalPageCount:
+          type: integer
+          format: int32
+          minimum: 0
+        completionPercentage:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+          description: Floor of completedPageCount * 100 / totalPageCount, or zero for an empty course.
+      description: |-
+        Summary of one student's progress through one course in one experiment.
+        Counts, percentage, status, and highestReachedPage are calculated from the
+        course's current pages. Deleted pages are excluded; adding or reordering pages
+        may therefore change the derived summary without changing stored progress.
+    Progress.PageProgress:
+      type: object
+      required:
+        - pageId
+        - pageNumber
+        - title
+        - reached
+        - completed
+      properties:
+        pageId:
+          $ref: '#/components/schemas/uuid'
+        pageNumber:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Current one-based position after ordering course pages by displayOrder.
+        title:
+          type: string
+        reached:
+          type: boolean
+          description: Whether the student explicitly marked this page as reached. Completion always implies reached.
+        reachedAt:
+          type: string
+          format: date-time
+          description: Server timestamp when this page was first marked as reached.
+        completed:
+          type: boolean
+          description: Whether the student explicitly marked this page as completed.
+        completedAt:
+          type: string
+          format: date-time
+          description: Server timestamp when this page was first marked as completed.
+      description: The student's progress state for one current course page.
+    Progress.PaginatedStudentCourseProgressResponse:
+      type: object
+      required:
+        - items
+        - totalPages
+        - totalItems
+        - currentPage
+        - pageSize
+        - hasNextPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Progress.StudentCourseProgress'
+        totalPages:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        currentPage:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+      description: Paginated participant progress for one course in one experiment.
+    Progress.ProgressPageReference:
+      type: object
+      required:
+        - pageId
+        - pageNumber
+        - title
+      properties:
+        pageId:
+          $ref: '#/components/schemas/uuid'
+        pageNumber:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Current one-based position after ordering course pages by displayOrder.
+        title:
+          type: string
+      description: A compact reference to a page's current position in its course.
+    Progress.StudentCourseProgress:
+      type: object
+      required:
+        - student
+        - assignedAt
+        - progress
+      properties:
+        student:
+          $ref: '#/components/schemas/Users.User'
+        assignedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the student was assigned to the experiment.
+        progress:
+          $ref: '#/components/schemas/Progress.CourseProgressSummary'
+      description: Management view of a participant's course progress.
     Questions.Answer:
       type: object
       required:
