@@ -3517,6 +3517,52 @@ paths:
         - Users
       security:
         - ApiKeyAuth: []
+  /api/users/me/grade:
+    put:
+      operationId: Users_updateMyGrade
+      description: Idempotently set the currently authenticated student's grade. Requires the STUDENT role. The grade can be replaced but cannot be cleared.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Users.UpdateStudentGradeRequest'
+      security:
+        - ApiKeyAuth: []
   /api/users/{id}:
     get:
       operationId: Users_get
@@ -3612,6 +3658,69 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
       tags:
         - Users
+      security:
+        - ApiKeyAuth: []
+  /api/users/{id}/grade:
+    put:
+      operationId: Users_updateGrade
+      description: Idempotently set a student's grade. Requires ADMIN. The target must have the STUDENT role and may be the caller. The grade can be replaced but cannot be cleared.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/uuid'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users.User'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unauthorized'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forbidden'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFound'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflict'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Users.UpdateStudentGradeRequest'
       security:
         - ApiKeyAuth: []
   /api/users/{id}/roles:
@@ -5517,6 +5626,20 @@ components:
         hasNextPage:
           type: boolean
       description: Paginated user directory response.
+    Users.StudentGrade:
+      type: integer
+      format: int32
+      minimum: 1
+      maximum: 12
+      description: A student's grade level, from elementary grade 1 through secondary grade 12.
+    Users.UpdateStudentGradeRequest:
+      type: object
+      required:
+        - grade
+      properties:
+        grade:
+          $ref: '#/components/schemas/Users.StudentGrade'
+      description: Sets a student's grade. A grade can be replaced but cannot be cleared.
     Users.UpdateUserRolesRequest:
       type: object
       required:
@@ -5551,6 +5674,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Users.UserRole'
+        grade:
+          allOf:
+            - $ref: '#/components/schemas/Users.StudentGrade'
+          description: The student's grade level. Omitted when the user is not a STUDENT or has not set a grade.
         createdAt:
           type: string
           format: date-time
