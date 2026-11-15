@@ -159,6 +159,9 @@ model Message {
 
   @doc("Timestamp when the message was created")
   createdAt: utcDateTime;
+
+  @doc("Persisted failure kind for a failed reply. Matches the SSE error code so history reloads preserve the original failure reason.")
+  errorCode?: string;
 }
 
 @doc("Announces the characters participating in the response.")
@@ -229,152 +232,142 @@ union StreamEvent {
   error: ErrorEvent,
 }
 
-// -----------------------------------------------------------------------------
-// Operations
-// -----------------------------------------------------------------------------
+model CourseContext {
+  experimentId: uuid;
+  courseId: uuid;
+  pageId: uuid;
+  ...Record<never>;
+}
+model CreateChatRequest {
+  courseContext?: CourseContext;
+  ...Record<never>;
+}
+model CourseChatResult {
+  chatId: uuid;
+}
+model CourseChatLookup {
+  chatId: uuid | null;
+}
+model GeneralChatResult {
+  @doc("Preserves the existing chatID spelling for general chats; the courseContext branch returns chatId.")
+  chatID: uuid;
+}
+model SendMessageRequest {
+  @doc("Original input and frontend reference context, not server-verified learning records. Keep the existing 64,000 UTF-8 byte envelope budget; do not truncate before sending. Retries and regeneration reuse the original turn snapshot.")
+  @minLength(1)
+  content: string;
+
+  previousID?: uuid;
+
+  @doc("Retains existing general-chat behavior. Bound course chats ignore this field and resolve the preset from their course; clients cannot override it.")
+  preset?: string;
+}
+
+alias ReadOnlyError = SciEdu.Materials.ErrorResponse<
+  409,
+  "urn:sciedu:problem:COURSE_CHAT_READ_ONLY"
+>;
+alias PresetUnavailableError = SciEdu.Materials.ErrorResponse<
+  409,
+  "urn:sciedu:problem:COURSE_CHAT_PRESET_UNAVAILABLE"
+>;
+alias ChatUnavailableError = SciEdu.Materials.ErrorResponse<
+  503,
+  "urn:sciedu:problem:CHAT_SERVICE_UNAVAILABLE"
+>;
 
 @tag("Chat")
 @route("/chat")
+@useAuth(SciEdu.Auth.SessionCookieAuth)
 namespace Chats {
-  @doc("""
-    List the authenticated user's chats, ordered by `updatedAt` descending
-    (most recently updated first). Powers the chat history sidebar.
-    """)
+  @doc("List the authenticated user's chats.\n\nReturns 200 with standard pagination, ordered by updatedAt descending. Only the owner may list chats. Course-chat history remains readable after experiment completion without exposing other users' chats. Errors: 400/401/500.")
   @get
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
   op list(
-    @query page?: int32 = 1,
+    @query @minValue(1) page?: int32 = 1,
 
-    @doc("Number of items per page. Maximum value is 100.")
     @query
     @minValue(1)
     @maxValue(100)
     pageSize?: int32 = 20,
+  ):
+    | {
+        @statusCode statusCode: 200;
+        @body body: PaginatedChatResponse;
+      }
+    | SciEdu.Materials.BadRequest
+    | SciEdu.Materials.Unauthenticated
+    | SciEdu.Materials.InternalError;
+
+  @doc("Create a general chat or get a course-page chat.\n\nRequest/compatibility: an empty body or {} preserves general-chat creation. courseContext must include experimentId, courseId and pageId together; an existing chat cannot be rebound from a general chat.\nCourse permissions: authenticated STUDENT, experiment participant, assigned course, matching page with chatEnabled=true, and valid ACTIVE/schedule access. Derive the student from the session.\nResponse: general chats retain 201 {chatID}. A new course chat returns 201 {chatId}; an existing binding for the same user/experiment/course/page returns 200 {chatId}. This endpoint creates or retrieves the chat only; it does not generate messages. Find the chat first and create it before the first message.\nConsistency: insert Chat and binding in one transaction, with a unique user/experiment/course/page key and composite ownership FKs. Concurrent creators return the same chat without orphans. Do not move old unbound conversations.\nErrors: 400 incomplete context/invalid UUID, 401/403, 404 resources or mismatched scope, 409 COURSE_CHAT_READ_ONLY after completion/archival (use GET even when a binding exists), 500. General chats do not acquire experiment read-only restrictions.")
+  @post
+  op create(@body body?: CreateChatRequest):
+    | {
+        @statusCode statusCode: 201;
+        @body body: GeneralChatResult | CourseChatResult;
+      }
+    | {
+        @statusCode statusCode: 200;
+        @body body: CourseChatResult;
+      }
+    | SciEdu.Materials.ReadErrors
+    | ReadOnlyError;
+
+  @doc("Find the authenticated student's course chat.\n\nPermissions: authenticated STUDENT with experiment/course/page access, deriving the user from the session. ACTIVE validates current course/page access and chat settings. Completed or archived experiments use the original binding for owned history, independent of later page settings or another current experiment.\nResponse: 200 {chatId:UUID|null}; null means no chat exists. GET never creates data. Experiments and pages have separate chats. Load history with GET /chat/{chatId}.\nErrors: 400 missing/invalid query parameters, 401/403, 404 unknown/invisible resources or mismatched scope, 500. Read access does not authorize chat creation or messages.")
+  @get
+  @route("/course")
+  op course(
+    @query experimentId: uuid,
+    @query courseId: uuid,
+    @query pageId: uuid,
   ): {
     @statusCode statusCode: 200;
-    @body body: PaginatedChatResponse;
-  } | {
-    @statusCode statusCode: 401;
-    @body error: SciEdu.Unauthorized;
-  };
+    @body body: CourseChatLookup;
+  } | SciEdu.Materials.ReadErrors;
 
-  @doc("Create a new chat session.")
-  @post
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  op create(): {
-    @statusCode statusCode: 201;
-    @body body: {
-      chatID: uuid;
-    };
-  } | {
-    @statusCode statusCode: 401;
-    @body error: SciEdu.Unauthorized;
-  };
-
-  @doc("Returns chat and all messages in the chat.")
-  @route("/{chatId}")
+  @doc("Get an owned chat and its message history.\n\nReturns 200 with the existing Chat and messages shape, including origin/main agentic parts, characters and agentRuns; failed replies may add errorCode. Enforce owner access. Course-chat history remains readable after completion/archival, including replies accepted before completion and finished later. GET does not regenerate replies or modify submissions/progress. Errors: 400/401/403/404/500.")
   @get
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  @route("/{chatId}")
   op get(@path chatId: uuid): {
     @statusCode statusCode: 200;
     @body body: {
       ...Chat;
       messages: Message[];
     };
-  } | {
-    @statusCode statusCode: 401;
-    @body error: SciEdu.Unauthorized;
-  } | {
-    @statusCode statusCode: 404;
-    @body error: SciEdu.ProblemDetail;
-  };
+  } | SciEdu.Materials.ReadErrors;
 
-  @doc("""
-      Delete a chat session and all of its messages. Only the chat's owner may
-      delete it; requests for chats owned by another user return 404 (the chat
-      is not visible to the caller).
-    """)
-  @route("/{chatId}")
+  @doc("Delete a chat session and all messages. Only the owner may delete; another user's chat returns 404. Existing deletion policy is unchanged by the material editing contract.")
   @delete
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  @route("/{chatId}")
   op delete(@path chatId: uuid): {
     @statusCode statusCode: 204;
-  } | {
-    @statusCode statusCode: 401;
-    @body error: SciEdu.Unauthorized;
-  } | {
-    @statusCode statusCode: 404;
-    @body error: SciEdu.ProblemDetail;
-  };
+  } | SciEdu.Materials.ReadErrors;
 
-  @doc("Send a message to a chat session. Returns the sent message and the ID of the pending reply message.")
-  @route("/{chatId}")
+  @doc("Send a message and accept background generation.\n\nPermissions: owned Chat; bound course chats also verify binding and experiment write access on every send, retry and regeneration path. General-chat routes must not bypass course binding checks.\nPreset: course chats ignore the client preset and resolve the stored course selection without fallback. General chats retain existing preset behavior. Old unbound chats are not converted into course conversations.\nResponse: 201 {message,replyMessageID}; replyMessageID is the precreated assistant UUID used to open SSE, not the user message.id.\nAcceptance boundary: coordinate the transaction with experiment state. Requests accepted before completion may release DB locks, finish generation and persist results afterward. Later requests, including retries/regeneration, return 409 COURSE_CHAT_READ_ONLY. Do not hold DB locks while waiting for SciLLM.\nErrors known before 201: 400/401/403/404, 409 COURSE_CHAT_READ_ONLY or COURSE_CHAT_PRESET_UNAVAILABLE, 503 CHAT_SERVICE_UNAVAILABLE, 500. After 201, emit SSE error.code and persist the same Message.errorCode; do not change the HTTP status retroactively.\nUpstream mapping: recognize unavailable presets only from an agreed structured signal (candidate PRESET_NOT_FOUND), never arbitrary 400/detail text. The upstream signal still requires SciLLM agreement.")
   @post
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  op createMessage(
-    @path chatId: uuid,
-    @body body: {
-      content: string;
-      previousID?: uuid;
-      preset?: string;
-    },
-  ):
+  @route("/{chatId}")
+  op createMessage(@path chatId: uuid, @body body: SendMessageRequest):
     | {
         @statusCode statusCode: 201;
         @body body: {
-          @doc("The user's message that was just sent. Its `id` is the ID of the user's message.")
           message: Message;
-
-          @doc("""
-            The ID of the assistant's reply message, which is pre-created in a `streaming` state.
-            The SSE stream endpoint (`GET /chat/stream/{messageId}`) expects the assistant's message ID — that is this field.
-            The `message.id` in this response is the user's message ID, which cannot be used to open a stream.
-            """)
           replyMessageID: uuid;
         };
       }
-    | {
-        @statusCode statusCode: 400;
-        @body error: SciEdu.ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: SciEdu.Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 404;
-        @body error: SciEdu.ProblemDetail;
-      };
+    | SciEdu.Materials.ReadErrors
+    | ReadOnlyError
+    | PresetUnavailableError
+    | ChatUnavailableError;
 
   @route("/stream/{messageId}")
   namespace Stream {
-    @doc("""
-      Stream the assistant reply for a given message using unnamed Server-Sent
-      Event frames (`data: <json>`). The `done` and `error` event types terminate
-      the stream. Returns 404 if the messageId does not exist, or 400 if the
-      message has no reply pending yet.
-      """)
+    @doc("Stream an assistant reply and generation errors.\n\nPermissions: owned assistant message; user-message IDs and another user's messages are not valid subscriptions. Preserve the current generation/reconnect flow; finishing an experiment does not abort previously accepted replies.\nResponse: 200 text/event-stream, using origin/main unnamed data:<JSON> frames and its existing eight-type StreamEvent union. Preserve required delta.index, final part_end.part, message-part and agent-run fields. done and error terminate the stream.\nErrors before headers: 400/401/403/404/500 application/problem+json. After headers, emit type=error with error and code, then close. COURSE_CHAT_PRESET_UNAVAILABLE and CHAT_SERVICE_UNAVAILABLE match the persisted Message.errorCode; preserve client input and recover the failure from history.")
     @get
-    @useAuth(SciEdu.Auth.SessionCookieAuth)
-    op get(@path messageId: uuid):
-      | {
-          @statusCode statusCode: 200;
-          @header("Content-Type") contentType: "text/event-stream";
-          @header("Cache-Control") cacheControl: "no-cache";
-          @header("Connection") connection: "keep-alive";
-          @body body: StreamEvent;
-        }
-      | {
-          @statusCode statusCode: 400;
-          @body error: SciEdu.ProblemDetail;
-        }
-      | {
-          @statusCode statusCode: 401;
-          @body error: SciEdu.Unauthorized;
-        }
-      | {
-          @statusCode statusCode: 404;
-          @body error: SciEdu.ProblemDetail;
-        };
+    op get(@path messageId: uuid): {
+      @statusCode statusCode: 200;
+      @header("Content-Type") contentType: "text/event-stream";
+      @header("Cache-Control") cacheControl: "no-cache";
+      @header("Connection") connection: "keep-alive";
+      @body body: StreamEvent;
+    } | SciEdu.Materials.ReadErrors;
   }
 }

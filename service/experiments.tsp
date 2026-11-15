@@ -99,9 +99,18 @@ model ExperimentParticipantAssignment {
   assignedAt: utcDateTime;
 }
 
+model ManagementCourse extends SciEdu.Courses.Course {
+  @doc("Persisted preset selection. Unreliable history is LEGACY_UNCONFIRMED. Preserve it after completion or archival; never backfill from current frontend defaults.")
+  preset: SciEdu.Materials.PresetState;
+}
+
 model ExperimentCourseAssignment {
   course: SciEdu.Courses.Course;
   linkedAt: utcDateTime;
+}
+
+model ManagementExperimentCourseAssignment extends ExperimentCourseAssignment {
+  course: ManagementCourse;
 }
 
 model PaginatedExperimentParticipantsResponse {
@@ -322,30 +331,14 @@ interface Experiments {
     | ExperimentConflictResponse
     | ProblemDetail;
 
-  @doc("Update an experiment lifecycle status. Requires EXPERIMENTER or ADMIN.")
+  @doc("Update experiment status and freeze course usage.\n\nRequires ADMIN or EXPERIMENTER. On the first transition to ACTIVE, persist irreversible activation evidence and permanently freeze the referenced course content and preset in the same transaction, before any student visit. Completion, archival or status rollback never unlocks them. Coordinate activation, document writes and replacement using experiment locks followed by Course locks in ID order. Preset removal or catalog downtime must not block activation or trigger fallback. Existing schedule checks, request body and 200 ExperimentDetail remain unchanged; internal lock timestamps are not public.")
   @put
   @route("/{id}/status")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  updateStatus(@path id: uuid, @body body: UpdateExperimentStatusRequest):
-    | {
-        @statusCode statusCode: 200;
-        @body body: ExperimentDetail;
-      }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | ExperimentNotFoundResponse
-    | ExperimentConflictResponse
-    | ProblemDetail;
+  updateStatus(@path id: uuid, @body body: UpdateExperimentStatusRequest): {
+    @statusCode statusCode: 200;
+    @body body: ExperimentDetail;
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
 
   @doc("List experiment participants. Requires EXPERIMENTER or ADMIN.")
   @get
@@ -426,7 +419,7 @@ interface Experiments {
     | ExperimentNotFoundResponse
     | ProblemDetail;
 
-  @doc("List courses assigned to an experiment. Students may only access their current experiment; management roles may access any experiment.")
+  @doc("List experiment courses and historical preset selections.\n\nReturns 200 with standard pagination. Preserve the existing student restriction to the current experiment and omit course.preset for students. ADMIN or EXPERIMENTER may query all states, including COMPLETED and ARCHIVED; management responses must include the original course.preset selection and availability such as UNKNOWN or REMOVED. Missing reliable history is LEGACY_UNCONFIRMED, never a current frontend default. Read original associations without granting students broader historical material access.")
   @get
   @route("/{id}/courses")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
@@ -438,67 +431,47 @@ interface Experiments {
     @minValue(1)
     @maxValue(100)
     pageSize?: int32 = 20,
-  ):
-    | {
-        @statusCode statusCode: 200;
-        @body body: PaginatedExperimentCoursesResponse;
-      }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | ExperimentNotFoundResponse
-    | ProblemDetail;
+  ): {
+    @statusCode statusCode: 200;
+    @body body: PaginatedExperimentCoursesResponse;
+  } | SciEdu.Materials.ReadErrors;
 
-  @doc("Assign courses to an experiment. The batch is atomic and fails with 409 without creating any assignments if any assignment conflicts. Requires EXPERIMENTER or ADMIN.")
+  @doc("Assign courses to an experiment.\n\nRequires ADMIN or EXPERIMENTER. Preserve batch atomicity and the 200 assignment-array response. Permanently reject additions after the first ACTIVE transition, including subsequent completion, archival or status rollback. Protect unconfirmed legacy activation history conservatively. Share activation locks; any association conflict returns 409 and rolls back the entire batch.")
   @post
   @route("/{id}/courses")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  addCourses(@path id: uuid, @body body: AddExperimentCoursesRequest):
-    | {
-        @statusCode statusCode: 200;
-        @body body: ExperimentCourseAssignment[];
-      }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | ExperimentNotFoundResponse
-    | ExperimentConflictResponse
-    | ProblemDetail;
+  addCourses(@path id: uuid, @body body: AddExperimentCoursesRequest): {
+    @statusCode statusCode: 200;
+    @body body: ManagementExperimentCourseAssignment[];
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
 
-  @doc("Remove a course assignment from an experiment. Requires EXPERIMENTER or ADMIN.")
+  @doc("Remove a course from an experiment that has not started.\n\nRequires ADMIN or EXPERIMENTER. Returns 204. After the first ACTIVE transition, reject removal in every later state with 409 and preserve historical associations. Protect unconfirmed history conservatively. Share activation/replacement transaction locks. Other errors: 400/401/403/404/500.")
   @delete
   @route("/{id}/courses/{courseId}")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  removeCourse(@path id: uuid, @path courseId: uuid):
-    | {
-        @statusCode statusCode: 204;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | ExperimentNotFoundResponse
-    | ProblemDetail;
+  removeCourse(@path id: uuid, @path courseId: uuid): {
+    @statusCode statusCode: 204;
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
+}
+
+model ReplaceCourseRequest {
+  replacementCourseId: uuid;
+  ...Record<never>;
+}
+
+@tag("Experiments")
+@route("/experiments/{experimentId}/courses/{courseId}/replacement")
+@useAuth(SciEdu.Auth.SessionCookieAuth)
+interface CourseReplacement {
+  @doc("Atomically replace a course in a scheduled experiment.\n\nPermissions: ADMIN or EXPERIMENTER. The experiment must be SCHEDULED and must never have entered ACTIVE; unconfirmed history is not proof that it never started.\nRequest: courseId identifies the current association; replacementCourseId selects the replacement. Idempotency-Key is required.\nResponse: 200 ManagementExperimentCourseAssignment with the new course and linkedAt. The replacement must be published, the original must still be linked and the replacement must not already be assigned. A duplicate or same-course target returns 409 with the original list intact. Copying or publishing never automatically replaces an association.\nTransaction/retries: share experiment and ID-ordered Course locks with activation. Commit replacement and successful-key result together. After authorization, replay the original 200 for a successful same-key, same-request retry even if the old association is gone or the experiment has started; otherwise check the current state. Reusing a key with another request returns 409.\nErrors: 400 invalid UUID/body, 401/403, 404 experiment/course/original association, 409 state/target/key conflict, 500; summer application/problem+json. Never parse detail for a failure kind.")
+  @put
+  replace(
+    @path experimentId: uuid,
+    @path courseId: uuid,
+    ...SciEdu.Materials.IdempotencyHeader,
+    @body body: ReplaceCourseRequest,
+  ): {
+    @statusCode statusCode: 200;
+    @body body: ManagementExperimentCourseAssignment;
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
 }

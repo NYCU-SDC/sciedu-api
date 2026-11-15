@@ -1,0 +1,295 @@
+{
+  "empty": {
+    "expectedRevision": 1,
+    "document": {
+      "schemaVersion": 2,
+      "code": "example-general",
+      "title": "教材編輯範例：general",
+      "presentation": {
+        "version": 2,
+        "profile": "general",
+        "navigation": "stepper",
+        "chatAppearance": null
+      },
+      "pages": []
+    }
+  },
+  "general": {
+    "expectedRevision": 1,
+    "document": {
+      "schemaVersion": 2,
+      "code": "example-general",
+      "title": "教材編輯範例：general",
+      "presentation": {
+        "version": 2,
+        "profile": "general",
+        "navigation": "stepper",
+        "chatAppearance": null
+      },
+      "pages": [
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "title": "觀察與作答",
+          "blocks": [
+            {
+              "id": "00000000-0000-4000-8000-000000000020",
+              "type": "TEXT",
+              "resourceId": "00000000-0000-4000-8000-000000000100",
+              "required": false
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000021",
+              "type": "MEDIA",
+              "resourceId": "00000000-0000-4000-8000-000000000101",
+              "required": false
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000022",
+              "type": "QUESTION",
+              "resourceId": "00000000-0000-4000-8000-000000000102",
+              "required": true
+            }
+          ],
+          "presentation": {
+            "version": 2,
+            "layout": "free-grid",
+            "stage": null,
+            "mentalSet": null,
+            "notice": null,
+            "chatEnabled": false,
+            "chatOverride": null,
+            "contextTextIds": [],
+            "nodes": [
+              {
+                "kind": "reading-group",
+                "id": "00000000-0000-4000-8000-000000000030",
+                "children": [
+                  {
+                    "kind": "text",
+                    "id": "00000000-0000-4000-8000-000000000031",
+                    "blockId": "00000000-0000-4000-8000-000000000020",
+                    "format": "markdown"
+                  },
+                  {
+                    "kind": "image",
+                    "id": "00000000-0000-4000-8000-000000000032",
+                    "blockId": "00000000-0000-4000-8000-000000000021",
+                    "alt": "觀察圖",
+                    "caption": "教材圖說"
+                  }
+                ],
+                "layout": {
+                  "colSpan": 12,
+                  "rowSpan": 1
+                }
+              },
+              {
+                "kind": "question",
+                "id": "00000000-0000-4000-8000-000000000033",
+                "blockId": "00000000-0000-4000-8000-000000000022",
+                "label": "你的觀察",
+                "input": {
+                  "kind": "text-choice",
+                  "options": [
+                    "相同",
+                    "不相同"
+                  ]
+                },
+                "layout": {
+                  "colSpan": 12,
+                  "rowSpan": 2
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "title": "回看先前回答",
+          "blocks": [],
+          "presentation": {
+            "version": 2,
+            "layout": "free-grid",
+            "stage": null,
+            "mentalSet": null,
+            "notice": null,
+            "chatEnabled": false,
+            "chatOverride": null,
+            "contextTextIds": [],
+            "nodes": [
+              {
+                "kind": "answer-reference",
+                "id": "00000000-0000-4000-8000-000000000034",
+                "title": "先前回答",
+                "display": "single",
+                "references": [
+                  {
+                    "pageId": "00000000-0000-4000-8000-000000000010",
+                    "questionBlockId": "00000000-0000-4000-8000-000000000022",
+                    "label": "觀察結果"
+                  }
+                ],
+                "layout": {
+                  "colSpan": 12,
+                  "rowSpan": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "sciarg": {
+    "expectedRevision": 1,
+    "document": {
+      "schemaVersion": 2,
+      "code": "example-sciarg",
+      "title": "教材編輯範例：sciarg",
+      "presentation": {
+        "version": 2,
+        "profile": "sciarg",
+        "navigation": "stepper",
+        "chatAppearance": null
+      },
+      "pages": [
+        {
+          "id": "00000000-0000-4000-8000-000000000040",
+          "title": "初始回答",
+          "blocks": [
+            {
+              "id": "00000000-0000-4000-8000-000000000041",
+              "type": "TEXT",
+              "resourceId": "00000000-0000-4000-8000-000000000100",
+              "required": false
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000042",
+              "type": "MEDIA",
+              "resourceId": "00000000-0000-4000-8000-000000000101",
+              "required": false
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000043",
+              "type": "QUESTION",
+              "resourceId": "00000000-0000-4000-8000-000000000102",
+              "required": true
+            }
+          ],
+          "presentation": {
+            "version": 2,
+            "layout": "sciarg-split",
+            "stage": "initial",
+            "mentalSet": null,
+            "notice": null,
+            "chatEnabled": false,
+            "chatOverride": null,
+            "contextTextIds": [],
+            "preview": true,
+            "previewLabel": "靜態示意圖",
+            "nodes": [
+              {
+                "kind": "text",
+                "id": "00000000-0000-4000-8000-000000000044",
+                "blockId": "00000000-0000-4000-8000-000000000041",
+                "format": "markdown"
+              },
+              {
+                "kind": "image",
+                "id": "00000000-0000-4000-8000-000000000045",
+                "blockId": "00000000-0000-4000-8000-000000000042",
+                "alt": "示意圖",
+                "caption": ""
+              },
+              {
+                "kind": "question",
+                "id": "00000000-0000-4000-8000-000000000046",
+                "blockId": "00000000-0000-4000-8000-000000000043",
+                "label": "初始回答",
+                "input": {
+                  "kind": "text"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "ccm": {
+    "expectedRevision": 1,
+    "document": {
+      "schemaVersion": 2,
+      "code": "example-ccm",
+      "title": "教材編輯範例：ccm",
+      "presentation": {
+        "version": 2,
+        "profile": "ccm",
+        "navigation": "stepper",
+        "chatAppearance": null
+      },
+      "pages": [
+        {
+          "id": "00000000-0000-4000-8000-000000000050",
+          "title": "心臟觀察",
+          "blocks": [
+            {
+              "id": "00000000-0000-4000-8000-000000000051",
+              "type": "TEXT",
+              "resourceId": "00000000-0000-4000-8000-000000000100",
+              "required": false
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000052",
+              "type": "QUESTION",
+              "resourceId": "00000000-0000-4000-8000-000000000102",
+              "required": true
+            }
+          ],
+          "presentation": {
+            "version": 2,
+            "layout": "ccm-stacked",
+            "stage": "ccm-observation",
+            "mentalSet": 1,
+            "notice": null,
+            "chatEnabled": false,
+            "chatOverride": null,
+            "contextTextIds": [],
+            "nodes": [
+              {
+                "kind": "reading-group",
+                "id": "00000000-0000-4000-8000-000000000053",
+                "children": [
+                  {
+                    "kind": "text",
+                    "id": "00000000-0000-4000-8000-000000000054",
+                    "blockId": "00000000-0000-4000-8000-000000000051",
+                    "format": "markdown"
+                  },
+                  {
+                    "kind": "simulation",
+                    "id": "00000000-0000-4000-8000-000000000055",
+                    "simulationId": "ccm-heart-v1"
+                  }
+                ]
+              },
+              {
+                "kind": "question",
+                "id": "00000000-0000-4000-8000-000000000056",
+                "blockId": "00000000-0000-4000-8000-000000000052",
+                "label": "觀察結果",
+                "input": {
+                  "kind": "text-choice",
+                  "options": [
+                    "相同",
+                    "不相同"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

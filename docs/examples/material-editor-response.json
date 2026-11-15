@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 2,
+  "code": "example-general",
+  "title": "教材編輯範例：general",
+  "presentation": {
+    "version": 2,
+    "profile": "general",
+    "navigation": "stepper",
+    "chatAppearance": null
+  },
+  "pages": [
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "title": "觀察與作答",
+      "blocks": [
+        {
+          "id": "00000000-0000-4000-8000-000000000020",
+          "type": "TEXT",
+          "resourceId": "00000000-0000-4000-8000-000000000100",
+          "required": false,
+          "pageId": "00000000-0000-4000-8000-000000000010",
+          "displayOrder": 0,
+          "createdAt": "2026-11-15T00:00:00Z",
+          "updatedAt": "2026-11-15T00:00:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000021",
+          "type": "MEDIA",
+          "resourceId": "00000000-0000-4000-8000-000000000101",
+          "required": false,
+          "pageId": "00000000-0000-4000-8000-000000000010",
+          "displayOrder": 1,
+          "createdAt": "2026-11-15T00:00:00Z",
+          "updatedAt": "2026-11-15T00:00:00Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000022",
+          "type": "QUESTION",
+          "resourceId": "00000000-0000-4000-8000-000000000102",
+          "required": true,
+          "pageId": "00000000-0000-4000-8000-000000000010",
+          "displayOrder": 2,
+          "createdAt": "2026-11-15T00:00:00Z",
+          "updatedAt": "2026-11-15T00:00:00Z"
+        }
+      ],
+      "presentation": {
+        "version": 2,
+        "layout": "free-grid",
+        "stage": null,
+        "mentalSet": null,
+        "notice": null,
+        "chatEnabled": false,
+        "chatOverride": null,
+        "contextTextIds": [],
+        "nodes": [
+          {
+            "kind": "reading-group",
+            "id": "00000000-0000-4000-8000-000000000030",
+            "children": [
+              {
+                "kind": "text",
+                "id": "00000000-0000-4000-8000-000000000031",
+                "blockId": "00000000-0000-4000-8000-000000000020",
+                "format": "markdown"
+              },
+              {
+                "kind": "image",
+                "id": "00000000-0000-4000-8000-000000000032",
+                "blockId": "00000000-0000-4000-8000-000000000021",
+                "alt": "觀察圖",
+                "caption": "教材圖說"
+              }
+            ],
+            "layout": {
+              "colSpan": 12,
+              "rowSpan": 1
+            }
+          },
+          {
+            "kind": "question",
+            "id": "00000000-0000-4000-8000-000000000033",
+            "blockId": "00000000-0000-4000-8000-000000000022",
+            "label": "你的觀察",
+            "input": {
+              "kind": "text-choice",
+              "options": [
+                "相同",
+                "不相同"
+              ]
+            },
+            "layout": {
+              "colSpan": 12,
+              "rowSpan": 2
+            }
+          }
+        ]
+      },
+      "displayOrder": 0,
+      "createdAt": "2026-11-15T00:00:00Z",
+      "updatedAt": "2026-11-15T00:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "title": "回看先前回答",
+      "blocks": [],
+      "presentation": {
+        "version": 2,
+        "layout": "free-grid",
+        "stage": null,
+        "mentalSet": null,
+        "notice": null,
+        "chatEnabled": false,
+        "chatOverride": null,
+        "contextTextIds": [],
+        "nodes": [
+          {
+            "kind": "answer-reference",
+            "id": "00000000-0000-4000-8000-000000000034",
+            "title": "先前回答",
+            "display": "single",
+            "references": [
+              {
+                "pageId": "00000000-0000-4000-8000-000000000010",
+                "questionBlockId": "00000000-0000-4000-8000-000000000022",
+                "label": "觀察結果"
+              }
+            ],
+            "layout": {
+              "colSpan": 12,
+              "rowSpan": 1
+            }
+          }
+        ]
+      },
+      "displayOrder": 1,
+      "createdAt": "2026-11-15T00:00:00Z",
+      "updatedAt": "2026-11-15T00:00:00Z"
+    }
+  ],
+  "id": "00000000-0000-4000-8000-000000000001",
+  "revision": 1,
+  "status": "DRAFT",
+  "preset": {
+    "selection": "UNSELECTED",
+    "presetId": null,
+    "availability": null
+  },
+  "editable": true,
+  "editBlockedReason": null,
+  "createdAt": "2026-11-15T00:00:00Z",
+  "updatedAt": "2026-11-15T00:00:00Z",
+  "resources": {
+    "texts": [
+      {
+        "id": "00000000-0000-4000-8000-000000000100",
+        "type": "TEXT",
+        "content": "觀察正文"
+      }
+    ],
+    "questions": [
+      {
+        "id": "00000000-0000-4000-8000-000000000102",
+        "type": "TEXT",
+        "content": "請描述觀察結果"
+      }
+    ],
+    "media": [
+      {
+        "id": "00000000-0000-4000-8000-000000000101",
+        "type": "MEDIA",
+        "url": "/api/content/media/00000000-0000-4000-8000-000000000101",
+        "mimeType": "image/png",
+        "sizeBytes": 1024,
+        "width": 800,
+        "height": 600,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  }
+}

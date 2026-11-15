@@ -2,6 +2,8 @@
 
 SciEdu API documentation.
 
+See the [Material Editing API contract](docs/API.md) for v2 behavior, compatibility, transactions and verification. TypeSpec is the source of truth for routes and schemas; run `pnpm run check:materials` to validate the generated OpenAPI and examples.
+
 ## Dependencies
 
 Please install [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) first.
