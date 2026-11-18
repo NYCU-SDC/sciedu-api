@@ -176,11 +176,6 @@ union SimulationId {
   `ccm-marrow-v1`: "ccm-marrow-v1",
 }
 
-model GridLayout {
-  colSpan: 4 | 6 | 8 | 12;
-  rowSpan: 1 | 2 | 3;
-  ...Record<never>;
-}
 model NodeBase {
   @doc("Client UUID unique across the document and distinct from blockId. Do not reuse deleted IDs; copying between pages requires a new UUID.")
   id: uuid;
@@ -271,59 +266,29 @@ union ReadingChild {
   image: ImageNode,
   simulation: SimulationNode,
 }
-@doc("Preserves child order and forbids nested groups or child layout. An image/text card needs at least one text and one image; CCM also supports text plus simulation. The per-page limit of 1,000 nodes includes children.")
+@doc("Preserves child order and requires at least one text node. Image and simulation children are optional for all profiles. Nested groups and child layout are forbidden. The per-page limit of 1,000 nodes includes children.")
 model ReadingGroupNode extends NodeBase {
   kind: "reading-group";
-  @minItems(2) @maxItems(999) children: ReadingChild[];
+  @minItems(1) @maxItems(999) children: ReadingChild[];
   ...Record<never>;
 }
 
 // Answer-reference uses a second discriminator (display) within its kind.
 @doc("Identify nodes by kind; answer-reference additionally discriminates on display, preserving each branch's reference cardinality.")
-union TemplateNode {
-  text: TextNode,
-  image: ImageNode,
-  question: QuestionNode,
-  simulation: SimulationNode,
-  `answer-reference`: AnswerReferenceNode,
+union PageNode {
   `reading-group`: ReadingGroupNode,
+  `answer-reference`: AnswerReferenceNode,
+  question: QuestionNode,
 }
-model GridTextNode {
-  ...TextNode;
-  layout: GridLayout;
-}
-model GridImageNode {
-  ...ImageNode;
-  layout: GridLayout;
-}
-model GridQuestionNode {
-  ...QuestionNode;
-  layout: GridLayout;
-}
-model GridSimulationNode {
-  ...SimulationNode;
-  layout: GridLayout;
-}
-model GridSingleAnswerReferenceNode {
-  ...SingleAnswerReferenceNode;
-  layout: GridLayout;
-}
-model GridTableAnswerReferenceNode {
-  ...TableAnswerReferenceNode;
-  layout: GridLayout;
-}
-model GridReadingGroupNode {
-  ...ReadingGroupNode;
-  layout: GridLayout;
-}
-union GridNode {
-  GridTextNode,
-  GridImageNode,
-  GridQuestionNode,
-  GridSimulationNode,
-  GridSingleAnswerReferenceNode,
-  GridTableAnswerReferenceNode,
-  GridReadingGroupNode,
+
+model PageLayout {
+  @doc("Controls the reading card: split uses side-by-side columns, stacked uses vertical order.")
+  reading: "split" | "stacked";
+
+  @doc("Controls question placement independently of reading and chat profile. Row allows at most three questions.")
+  questions: "row" | "column";
+
+  ...Record<never>;
 }
 
 model PagePresentationBase {
@@ -348,38 +313,14 @@ model PagePresentationBase {
   @maxItems(100)
   contextTextIds: uuid[];
 }
-model SciArgPresentation extends PagePresentationBase {
-  layout: "sciarg-split";
+model PagePresentation extends PagePresentationBase {
+  layout: PageLayout;
 
-  @doc("The first two nodes are body text/image/simulation, followed by answer-reference/question. Template nodes reject layout dimensions. An empty DRAFT may temporarily have no nodes.")
+  @doc("Exactly one reading-group first, followed by at most one answer-reference and then zero or more questions. Only an empty DRAFT page may temporarily have no nodes. The server validates order, cardinality and the three-question row limit; violations return 422 INVALID_TEMPLATE.")
   @maxItems(1000)
-  nodes: TemplateNode[];
+  nodes: PageNode[];
 
   ...Record<never>;
-}
-model CCMPresentation extends PagePresentationBase {
-  layout: "ccm-stacked";
-
-  @doc("The first node is a reading-group, followed by answer-reference/question. Template nodes reject layout dimensions. An empty DRAFT may temporarily have no nodes.")
-  @maxItems(1000)
-  nodes: TemplateNode[];
-
-  ...Record<never>;
-}
-model FreeGridPresentation extends PagePresentationBase {
-  layout: "free-grid";
-
-  @doc("Every top-level node requires layout; children reject it. Array order is authoritative; do not persist x/y or pixel coordinates.")
-  @maxItems(1000)
-  nodes: GridNode[];
-
-  ...Record<never>;
-}
-@discriminated(#{ envelope: "none", discriminatorPropertyName: "layout" })
-union PagePresentation {
-  `sciarg-split`: SciArgPresentation,
-  `ccm-stacked`: CCMPresentation,
-  `free-grid`: FreeGridPresentation,
 }
 
 model BlockInputBase {
@@ -487,7 +428,7 @@ model DocumentInput {
         ],
         presentation: #{
           version: 2,
-          layout: "free-grid",
+          layout: #{ reading: "stacked", questions: "column" },
           stage: null,
           mentalSet: null,
           notice: null,
@@ -513,7 +454,6 @@ model DocumentInput {
                   caption: "教材圖說",
                 }
               ],
-              layout: #{ colSpan: 12, rowSpan: 1 },
             },
             #{
               kind: "question",
@@ -521,7 +461,6 @@ model DocumentInput {
               blockId: "00000000-0000-4000-8000-000000000022",
               label: "你的觀察",
               input: #{ kind: "text-choice", options: #["相同", "不相同"] },
-              layout: #{ colSpan: 12, rowSpan: 2 },
             }
           ],
         },
@@ -529,10 +468,17 @@ model DocumentInput {
       #{
         id: "00000000-0000-4000-8000-000000000011",
         title: "回看先前回答",
-        blocks: #[],
+        blocks: #[
+          #{
+            id: "00000000-0000-4000-8000-000000000023",
+            type: "TEXT",
+            resourceId: "00000000-0000-4000-8000-000000000100",
+            required: false,
+          }
+        ],
         presentation: #{
           version: 2,
-          layout: "free-grid",
+          layout: #{ reading: "stacked", questions: "column" },
           stage: null,
           mentalSet: null,
           notice: null,
@@ -540,6 +486,18 @@ model DocumentInput {
           chatOverride: null,
           contextTextIds: #[],
           nodes: #[
+            #{
+              kind: "reading-group",
+              id: "00000000-0000-4000-8000-000000000035",
+              children: #[
+                #{
+                  kind: "text",
+                  id: "00000000-0000-4000-8000-000000000036",
+                  blockId: "00000000-0000-4000-8000-000000000023",
+                  format: "markdown",
+                }
+              ],
+            },
             #{
               kind: "answer-reference",
               id: "00000000-0000-4000-8000-000000000034",
@@ -552,7 +510,6 @@ model DocumentInput {
                   label: "觀察結果",
                 }
               ],
-              layout: #{ colSpan: 12, rowSpan: 1 },
             }
           ],
         },
@@ -598,7 +555,7 @@ model DocumentInput {
         ],
         presentation: #{
           version: 2,
-          layout: "sciarg-split",
+          layout: #{ reading: "split", questions: "row" },
           stage: "initial",
           mentalSet: null,
           notice: null,
@@ -609,17 +566,23 @@ model DocumentInput {
           previewLabel: "靜態示意圖",
           nodes: #[
             #{
-              kind: "text",
-              id: "00000000-0000-4000-8000-000000000044",
-              blockId: "00000000-0000-4000-8000-000000000041",
-              format: "markdown",
-            },
-            #{
-              kind: "image",
-              id: "00000000-0000-4000-8000-000000000045",
-              blockId: "00000000-0000-4000-8000-000000000042",
-              alt: "示意圖",
-              caption: "",
+              kind: "reading-group",
+              id: "00000000-0000-4000-8000-000000000047",
+              children: #[
+                #{
+                  kind: "text",
+                  id: "00000000-0000-4000-8000-000000000044",
+                  blockId: "00000000-0000-4000-8000-000000000041",
+                  format: "markdown",
+                },
+                #{
+                  kind: "image",
+                  id: "00000000-0000-4000-8000-000000000045",
+                  blockId: "00000000-0000-4000-8000-000000000042",
+                  alt: "示意圖",
+                  caption: "",
+                }
+              ],
             },
             #{
               kind: "question",
@@ -666,7 +629,7 @@ model DocumentInput {
         ],
         presentation: #{
           version: 2,
-          layout: "ccm-stacked",
+          layout: #{ reading: "stacked", questions: "column" },
           stage: "ccm-observation",
           mentalSet: 1,
           notice: null,
@@ -797,7 +760,7 @@ model Resources {
       ],
       presentation: #{
         version: 2,
-        layout: "free-grid",
+        layout: #{ reading: "stacked", questions: "column" },
         stage: null,
         mentalSet: null,
         notice: null,
@@ -823,7 +786,6 @@ model Resources {
                 caption: "教材圖說",
               }
             ],
-            layout: #{ colSpan: 12, rowSpan: 1 },
           },
           #{
             kind: "question",
@@ -831,7 +793,6 @@ model Resources {
             blockId: "00000000-0000-4000-8000-000000000022",
             label: "你的觀察",
             input: #{ kind: "text-choice", options: #["相同", "不相同"] },
-            layout: #{ colSpan: 12, rowSpan: 2 },
           }
         ],
       },
@@ -842,10 +803,21 @@ model Resources {
     #{
       id: "00000000-0000-4000-8000-000000000011",
       title: "回看先前回答",
-      blocks: #[],
+      blocks: #[
+        #{
+          id: "00000000-0000-4000-8000-000000000023",
+          type: SciEdu.Pages.PageBlockType.TEXT,
+          resourceId: "00000000-0000-4000-8000-000000000100",
+          required: false,
+          pageId: "00000000-0000-4000-8000-000000000011",
+          displayOrder: 0,
+          createdAt: utcDateTime.fromISO("2026-11-15T00:00:00Z"),
+          updatedAt: utcDateTime.fromISO("2026-11-15T00:00:00Z"),
+        }
+      ],
       presentation: #{
         version: 2,
-        layout: "free-grid",
+        layout: #{ reading: "stacked", questions: "column" },
         stage: null,
         mentalSet: null,
         notice: null,
@@ -853,6 +825,18 @@ model Resources {
         chatOverride: null,
         contextTextIds: #[],
         nodes: #[
+          #{
+            kind: "reading-group",
+            id: "00000000-0000-4000-8000-000000000035",
+            children: #[
+              #{
+                kind: "text",
+                id: "00000000-0000-4000-8000-000000000036",
+                blockId: "00000000-0000-4000-8000-000000000023",
+                format: "markdown",
+              }
+            ],
+          },
           #{
             kind: "answer-reference",
             id: "00000000-0000-4000-8000-000000000034",
@@ -865,7 +849,6 @@ model Resources {
                 label: "觀察結果",
               }
             ],
-            layout: #{ colSpan: 12, rowSpan: 1 },
           }
         ],
       },
@@ -923,15 +906,19 @@ model EditorDocument {
   preset: PresetState;
   pages: EditorPage[];
   resources: Resources;
-  editable: boolean;
-
-  @doc("null when editable. Unknown history must not be treated as proof of no prior use.")
-  editBlockedReason: "FORMALLY_USED" | "LEGACY_USAGE_UNCONFIRMED" | null;
-
+  ...CourseEditability;
   warnings?: Warning[];
   createdAt: utcDateTime;
   updatedAt: utcDateTime;
 }
+model CourseEditability {
+  @doc("True only when durable evidence confirms the course has never been formally used.")
+  editable: boolean;
+
+  @doc("Null when editable. Use FORMALLY_USED for confirmed formal usage and LEGACY_USAGE_UNCONFIRMED when legacy usage cannot be established.")
+  editBlockedReason: "FORMALLY_USED" | "LEGACY_USAGE_UNCONFIRMED" | null;
+}
+
 model PresetCatalogItem {
   id: PresetId;
   description: string;
@@ -944,7 +931,7 @@ model PresetCatalog {
 @route("/courses/{id}")
 @useAuth(SciEdu.Auth.SessionCookieAuth)
 interface Editor {
-  @doc("Get a complete course editor snapshot.\n\nPermissions: ADMIN or EXPERIMENTER with shared management access; no teacher-owner model is introduced.\nResponse: 200 EditorDocument from one consistent snapshot of pages, blocks, presentation and deduplicated resources. Excludes correct answers, student submissions, Chat data, file bytes and storage paths.\nLegacy: retain Page/Block IDs and derive stable node UUIDs for a read-only v2 projection. GET does not migrate the DB or switch student rendering. Lossless conversion failures return 422.\nLimits/errors: hydrated resource text is limited to 20 MiB; return 413 without truncation. Other errors: 400, 401/403, 404 course, 422 invalid legacy data, 500.")
+  @doc("Get a complete course editor snapshot.\n\nPermissions: ADMIN or EXPERIMENTER with shared management access; no teacher-owner model is introduced.\nResponse: 200 EditorDocument from one consistent snapshot of pages, blocks, presentation and deduplicated resources. Excludes correct answers, student submissions, Chat data, file bytes and storage paths.\nLegacy: retain Page/Block IDs and derive stable node UUIDs for a read-only v2 projection. Project SciArg by grouping its leading reading nodes and selecting split/row; project CCM with stacked/column. GET does not migrate the DB or switch student rendering. A legacy page that cannot be projected without changing its layout returns 422.\nLimits/errors: hydrated resource text is limited to 20 MiB; return 413 without truncation. Other errors: 400, 401/403, 404 course, 422 invalid legacy data, 500.")
   @get
   @route("/editor")
   read(@path id: uuid):
@@ -956,7 +943,7 @@ interface Editor {
     | TooLarge
     | InvalidDocument;
 
-  @doc("Atomically save a complete course document.\n\nPermissions: ADMIN or EXPERIMENTER. Check durable usage evidence rather than only the current experiment status.\nRequest: required Idempotency-Key and expectedRevision. Replace metadata, pages, blocks, ordering and presentation together. Arrays define order. Reject read-only fields, incomplete nodes and fake resource IDs. Limits: 5 MiB JSON, 500 pages, and per page 1,000 blocks, 1,000 total nodes including children, 100 contextTextIds.\nResponse: 200 EditorDocument with revision advanced once. A published course may be edited in place only while every referencing experiment has never started; enforce publication completeness and retain PUBLISHED. Formally used or history-unconfirmed courses return 409 and must be copied.\nTransaction: authorize, replay successful keys, lock/check revision, validate references/resources/whitelists/preset, then commit document and successful result together. Roll back all writes on failure. Reject duplicate UUIDs, cross-course/page ID reuse and reuse after deletion. Removing/reordering referenced pages or questions must fix references in the same snapshot; targets must be preceding-page QUESTION blocks.\nPreset: omission preserves the selection. First or changed selections require catalog validation. An unchanged removed or unverifiable selection may be saved with warnings; missing new choices return 422, unavailable verification 503, with no document writes.\nErrors: 400, 401/403/404, 409 revision/editability/key conflict, 413, 422 document/reference/template, 503 catalog, 500. Identify business failures by type. Successful-key replay returns the original 200 even after revision/state changes.")
+  @doc("Atomically save a complete course document.\n\nPermissions: ADMIN or EXPERIMENTER. Check durable usage evidence rather than only the current experiment status.\nRequest: required Idempotency-Key and expectedRevision. Replace metadata, pages, blocks, ordering and presentation together. Arrays define order. Reject read-only fields, incomplete nodes and fake resource IDs. Limits: 5 MiB JSON, 500 pages, and per page 1,000 blocks, 1,000 total nodes including children, 100 contextTextIds.\nResponse: 200 EditorDocument with revision advanced once. A published course may be edited in place only while every referencing experiment has never started; enforce publication completeness and retain PUBLISHED. Formally used or history-unconfirmed courses return 409 and must be copied.\nTransaction: authorize, replay successful keys, lock/check revision, validate references/resources/whitelists/preset, then commit document and successful result together. Roll back all writes on failure. Reject duplicate UUIDs, cross-course/page ID reuse and reuse after deletion. Removing/reordering referenced pages or questions must fix references in the same snapshot; targets must be preceding-page QUESTION blocks.\nPreset: omission preserves the selection. First or changed selections require catalog validation. An unchanged removed or unverifiable selection may be saved with warnings; missing new choices return 422, unavailable verification 503, with no document writes.\nErrors: 400, 401/403/404, 409 revision/editability/key conflict, 413, 422 document/reference/template (including INVALID_TEMPLATE when row exceeds three questions), 503 catalog, 500. Identify business failures by type. Successful-key replay returns the original 200 even after revision/state changes.")
   @put
   @route("/editor")
   save(@path id: uuid, ...IdempotencyHeader, @body body: SaveDocumentRequest): {

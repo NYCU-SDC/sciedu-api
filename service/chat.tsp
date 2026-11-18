@@ -242,15 +242,12 @@ model CreateChatRequest {
   courseContext?: CourseContext;
   ...Record<never>;
 }
-model CourseChatResult {
+model ChatResult {
   chatId: uuid;
+  ...Record<never>;
 }
 model CourseChatLookup {
   chatId: uuid | null;
-}
-model GeneralChatResult {
-  @doc("Preserves the existing chatID spelling for general chats; the courseContext branch returns chatId.")
-  chatID: uuid;
 }
 model SendMessageRequest {
   @doc("Original input and frontend reference context, not server-verified learning records. Keep the existing 64,000 UTF-8 byte envelope budget; do not truncate before sending. Retries and regeneration reuse the original turn snapshot.")
@@ -298,16 +295,16 @@ namespace Chats {
     | SciEdu.Materials.Unauthenticated
     | SciEdu.Materials.InternalError;
 
-  @doc("Create a general chat or get a course-page chat.\n\nRequest/compatibility: an empty body or {} preserves general-chat creation. courseContext must include experimentId, courseId and pageId together; an existing chat cannot be rebound from a general chat.\nCourse permissions: authenticated STUDENT, experiment participant, assigned course, matching page with chatEnabled=true, and valid ACTIVE/schedule access. Derive the student from the session.\nResponse: general chats retain 201 {chatID}. A new course chat returns 201 {chatId}; an existing binding for the same user/experiment/course/page returns 200 {chatId}. This endpoint creates or retrieves the chat only; it does not generate messages. Find the chat first and create it before the first message.\nConsistency: insert Chat and binding in one transaction, with a unique user/experiment/course/page key and composite ownership FKs. Concurrent creators return the same chat without orphans. Do not move old unbound conversations.\nErrors: 400 incomplete context/invalid UUID, 401/403, 404 resources or mismatched scope, 409 COURSE_CHAT_READ_ONLY after completion/archival (use GET even when a binding exists), 500. General chats do not acquire experiment read-only restrictions.")
+  @doc("Create a general chat or get a course-page chat.\n\nRequest/compatibility: an empty body or {} preserves general-chat creation. courseContext must include experimentId, courseId and pageId together; an existing chat cannot be rebound from a general chat.\nCourse permissions: authenticated STUDENT, experiment participant, assigned course, matching page with chatEnabled=true, and valid ACTIVE/schedule access. Derive the student from the session.\nResponse: General chats and new course chats return 201 {chatId}; an existing binding for the same user/experiment/course/page returns 200 {chatId}. The response always uses chatId. This endpoint creates or retrieves the chat only; it does not generate messages. Find the chat first and create it before the first message.\nConsistency: insert Chat and binding in one transaction, with a unique user/experiment/course/page key and composite ownership FKs. Concurrent creators return the same chat without orphans. Do not move old unbound conversations.\nErrors: 400 incomplete context/invalid UUID, 401/403, 404 resources or mismatched scope, 409 COURSE_CHAT_READ_ONLY after completion/archival (use GET even when a binding exists), 500. General chats do not acquire experiment read-only restrictions.")
   @post
   op create(@body body?: CreateChatRequest):
     | {
         @statusCode statusCode: 201;
-        @body body: GeneralChatResult | CourseChatResult;
+        @body body: ChatResult;
       }
     | {
         @statusCode statusCode: 200;
-        @body body: CourseChatResult;
+        @body body: ChatResult;
       }
     | SciEdu.Materials.ReadErrors
     | ReadOnlyError;

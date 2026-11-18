@@ -46,7 +46,10 @@
       ],
       "presentation": {
         "version": 2,
-        "layout": "free-grid",
+        "layout": {
+          "reading": "stacked",
+          "questions": "column"
+        },
         "stage": null,
         "mentalSet": null,
         "notice": null,
@@ -71,11 +74,7 @@
                 "alt": "觀察圖",
                 "caption": "教材圖說"
               }
-            ],
-            "layout": {
-              "colSpan": 12,
-              "rowSpan": 1
-            }
+            ]
           },
           {
             "kind": "question",
@@ -88,10 +87,6 @@
                 "相同",
                 "不相同"
               ]
-            },
-            "layout": {
-              "colSpan": 12,
-              "rowSpan": 2
             }
           }
         ]
@@ -103,10 +98,24 @@
     {
       "id": "00000000-0000-4000-8000-000000000011",
       "title": "回看先前回答",
-      "blocks": [],
+      "blocks": [
+        {
+          "id": "00000000-0000-4000-8000-000000000023",
+          "type": "TEXT",
+          "resourceId": "00000000-0000-4000-8000-000000000100",
+          "required": false,
+          "pageId": "00000000-0000-4000-8000-000000000011",
+          "displayOrder": 0,
+          "createdAt": "2026-11-15T00:00:00Z",
+          "updatedAt": "2026-11-15T00:00:00Z"
+        }
+      ],
       "presentation": {
         "version": 2,
-        "layout": "free-grid",
+        "layout": {
+          "reading": "stacked",
+          "questions": "column"
+        },
         "stage": null,
         "mentalSet": null,
         "notice": null,
@@ -114,6 +123,18 @@
         "chatOverride": null,
         "contextTextIds": [],
         "nodes": [
+          {
+            "kind": "reading-group",
+            "id": "00000000-0000-4000-8000-000000000035",
+            "children": [
+              {
+                "kind": "text",
+                "id": "00000000-0000-4000-8000-000000000036",
+                "blockId": "00000000-0000-4000-8000-000000000023",
+                "format": "markdown"
+              }
+            ]
+          },
           {
             "kind": "answer-reference",
             "id": "00000000-0000-4000-8000-000000000034",
@@ -125,11 +146,7 @@
                 "questionBlockId": "00000000-0000-4000-8000-000000000022",
                 "label": "觀察結果"
               }
-            ],
-            "layout": {
-              "colSpan": 12,
-              "rowSpan": 1
-            }
+            ]
           }
         ]
       },

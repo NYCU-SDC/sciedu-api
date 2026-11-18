@@ -44,8 +44,12 @@ model Course {
   updatedAt: utcDateTime;
 }
 
+model CourseListItem extends Course {
+  ...SciEdu.Materials.CourseEditability;
+}
+
 model PaginatedCoursesResponse {
-  items: Course[];
+  items: CourseListItem[];
   totalPages: int32;
   totalItems: int32;
   currentPage: int32;
@@ -106,7 +110,7 @@ model CourseWriteResult extends Course {
 @route("/courses")
 @useAuth(SciEdu.Auth.SessionCookieAuth)
 interface Courses {
-  @doc("List courses for management.\n\nRequires ADMIN or EXPERIMENTER. Returns 200 with standard pagination. Migrated courses expose revision; only persisted v2 courses expose presentation. Preset information is management-only. Errors: 400 invalid pagination or filters, 401/403, 500; application/problem+json.")
+  @doc("List courses for management.\n\nRequires ADMIN or EXPERIMENTER. Returns 200 with standard pagination. Migrated courses expose revision; only persisted v2 courses expose presentation. Preset information is management-only. Each item includes editable and editBlockedReason, computed from the same durable usage evidence as the editor. Compute them for the current page of results without hydrating editor pages or resources. Writes must recheck editability in their transaction. Errors: 400 invalid pagination or filters, 401/403, 500; application/problem+json.")
   @get
   list(
     @query @minValue(1) page?: int32 = 1,

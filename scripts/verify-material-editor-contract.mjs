@@ -86,9 +86,20 @@ assert.deepEqual(schemas["Pages.PageBlockType"].enum.toSorted(), ["MEDIA", "QUES
 assert.deepEqual(schemas["Materials.Stage"].enum.toSorted(), ["initial", "argumentation", "simulation", "final", "ccm-initial", "ccm-observation", "ccm-discussion", "ccm-final"].toSorted());
 assert.deepEqual(schemas["Materials.SimulationId"].enum.toSorted(), ["dark-room-v1", "ccm-heart-v1", "ccm-marrow-v1"].toSorted());
 assert.equal(operation("POST", "/chat").requestBody.required, false);
-assert.ok(operation("POST", "/chat").responses["200"]);
-assert.ok(properties(schemas["Chat.GeneralChatResult"]).chatID);
-assert.ok(properties(schemas["Chat.CourseChatResult"]).chatId);
+for (const status of ["200", "201"]) {
+  assert.equal(json(operation("POST", "/chat"), status).$ref, "#/components/schemas/Chat.ChatResult");
+}
+assert.deepEqual(required(schemas["Chat.ChatResult"]), ["chatId"]);
+assert.deepEqual(Object.keys(properties(schemas["Chat.ChatResult"])), ["chatId"]);
+const listItems = properties(json(operation("GET", "/courses"))).items;
+assert.equal(listItems.items.$ref, "#/components/schemas/Courses.CourseListItem");
+for (const field of ["editable", "editBlockedReason"]) {
+  assert.ok(required(listItems.items).includes(field));
+  assert.deepEqual(properties(listItems.items)[field], properties(schemas["Materials.EditorDocument"])[field]);
+  assert.ok(!properties(schemas["Courses.Course"])[field], field + " is specific to management projections");
+}
+const invalidDocument = operation("PUT", "/courses/{id}/editor").responses["422"].content["application/problem+json"].schema;
+assert.ok(properties(invalidDocument).type.enum.includes("urn:sciedu:problem:INVALID_TEMPLATE"));
 assert.ok(properties(schemas["Chat.Message"]).errorCode);
 assert.equal(operation("GET", "/chat/course").parameters.filter((p) => p.in === "query" && p.required).length, 3);
 assert.ok(operation("GET", "/chat/stream/{messageId}").responses["200"].content["text/event-stream"]);
@@ -161,6 +172,22 @@ const editorResponse = validator("Materials.EditorDocument");
 check("editor response fixture", JSON.parse(read("../docs/examples/material-editor-response.json")), true, editorResponse);
 for (const fixture of schemas["Materials.EditorDocument"].examples) check("emitted editor response", fixture, true, editorResponse);
 assert.deepEqual(schemas["Materials.EditorDocument"].examples[0], JSON.parse(read("../docs/examples/material-editor-response.json")));
+const pagePresentation = validator("Materials.PagePresentation");
+const textOnlyPage = examples.general.document.pages[1].presentation;
+for (const reading of ["split", "stacked"]) {
+  for (const questions of ["row", "column"]) {
+    check(reading + "/" + questions, {...textOnlyPage, layout: {reading, questions}}, true, pagePresentation);
+  }
+}
+check("empty draft page", {...textOnlyPage, nodes: []}, true, pagePresentation);
+const courseItem = validator("Courses.CourseListItem");
+const course = {id: examples.general.document.pages[0].id, code: "demo", title: "Demo", status: "DRAFT",
+  createdAt: "2026-11-15T00:00:00Z", updatedAt: "2026-11-15T00:00:00Z"};
+check("editable course", {...course, editable: true, editBlockedReason: null}, true, courseItem);
+for (const reason of ["FORMALLY_USED", "LEGACY_USAGE_UNCONFIRMED"]) {
+  check(reason, {...course, editable: false, editBlockedReason: reason}, true, courseItem);
+}
+check("missing editability", course, false, courseItem);
 function bad(name, mutate, fixture = examples.general) {
   const input = structuredClone(fixture);
   mutate(input);
@@ -176,14 +203,20 @@ bad("unknown schema version", (x) => {x.document.schemaVersion = 1;});
 bad("empty course title", (x) => {x.document.title = "";});
 bad("unknown stage", (x) => {x.document.pages[0].presentation.stage = "invented";});
 bad("unknown simulation", (x) => {x.document.pages[0].presentation.nodes[0].children[1].simulationId = "https://example.com";}, examples.ccm);
-bad("grid missing layout", (x) => {delete x.document.pages[0].presentation.nodes[0].layout;});
-bad("grid span", (x) => {x.document.pages[0].presentation.nodes[0].layout.colSpan = 5;});
-bad("template layout forbidden", (x) => {x.document.pages[0].presentation.nodes[0].layout = {colSpan: 12, rowSpan: 1};}, examples.sciarg);
+bad("old layout name", (x) => {x.document.pages[0].presentation.layout = "free-grid";});
+bad("missing question layout", (x) => {delete x.document.pages[0].presentation.layout.questions;});
+bad("invalid reading layout", (x) => {x.document.pages[0].presentation.layout.reading = "row";});
+bad("node layout forbidden", (x) => {x.document.pages[0].presentation.nodes[0].layout = {colSpan: 12, rowSpan: 1};}, examples.sciarg);
 bad("child layout forbidden", (x) => {x.document.pages[0].presentation.nodes[0].children[0].layout = {colSpan: 12, rowSpan: 1};});
 bad("nested reading group", (x) => {x.document.pages[0].presentation.nodes[0].children[0] = structuredClone(x.document.pages[0].presentation.nodes[0]);});
+bad("empty reading group", (x) => {x.document.pages[0].presentation.nodes[0].children = [];});
+bad("top-level text", (x) => {x.document.pages[0].presentation.nodes[0] = x.document.pages[0].presentation.nodes[0].children[0];});
 bad("TEXT required true", (x) => {x.document.pages[0].blocks[0].required = true;});
 bad("block invalid type", (x) => {x.document.pages[0].blocks[0].type = "SIMULATION";});
-bad("single reference cardinality", (x) => {x.document.pages[1].presentation.nodes[0].references.push(structuredClone(x.document.pages[1].presentation.nodes[0].references[0]));});
+bad("single reference cardinality", (x) => {
+  const reference = x.document.pages[1].presentation.nodes.find((node) => node.kind === "answer-reference");
+  reference.references.push(structuredClone(reference.references[0]));
+});
 bad("text-choice cardinality", (x) => {x.document.pages[0].presentation.nodes[1].input.options = ["only"];});
 bad("invalid UUID", (x) => {x.document.pages[0].id = "bad";});
 bad("too many pages", (x) => {x.document.pages = Array(501).fill(x.document.pages[0]);});
@@ -193,6 +226,9 @@ check("unselected preset", {selection: "UNSELECTED", presetId: null, availabilit
 check("removed preset", {selection: "SELECTED", presetId: "original", availability: "REMOVED"}, true, preset);
 check("invalid preset pairing", {selection: "UNSELECTED", presetId: "original", availability: "AVAILABLE"}, false, preset);
 const createChat = validator("Chat.CreateChatRequest");
+const chatResult = validator("Chat.ChatResult");
+check("unified chat result", {chatId: course.id}, true, chatResult);
+check("old general chat result", {chatID: course.id}, false, chatResult);
 check("legacy empty chat", {}, true, createChat);
 check("partial course context", {courseContext: {courseId: "00000000-0000-4000-8000-000000000001"}}, false, createChat);
 check("legacy publish", {status: "PUBLISHED"}, true, validator("Courses.UpdateCourseStatusRequest"));
@@ -214,7 +250,7 @@ if (mockBase) {
         ...(key ? {"Idempotency-Key": id} : {}), ...(body === undefined ? {} : {"Content-Type": "application/json"})},
       ...(body === undefined ? {} : {body: JSON.stringify(body)}),
     });
-    const text = await response.text();
+    const text = await response.clone().text();
     assert.equal(response.status, status, name + ": " + text.slice(0, 500));
     httpCases++;
     return response;
@@ -226,14 +262,25 @@ if (mockBase) {
   await request("missing idempotency", "PUT", path, examples.empty, 422, 200, false);
   await request("invalid revision", "PUT", path, {...examples.empty, expectedRevision: 0}, 422, 200);
   await request("editor read", "GET", path, undefined, 200);
+  const list = await request("course management list", "GET", "/courses", undefined, 200);
+  const {items} = await list.json();
+  assert.ok(items.length, "Prism should return at least one management list item");
+  for (const item of items) assert.ok(courseItem(item), ajv.errorsText(courseItem.errors));
   await request("copy", "POST", "/courses/" + id + "/copies", {expectedSourceRevision: 1, code: "copy", title: "副本"}, 201);
   await request("presets", "GET", "/chat/presets", undefined, 200);
   await request("replace", "PUT", "/experiments/" + id + "/courses/" + id + "/replacement", {replacementCourseId: id}, 200);
   await request("lookup", "GET", "/chat/course?experimentId=" + id + "&courseId=" + id + "&pageId=" + id, undefined, 200);
   await request("missing lookup scope", "GET", "/chat/course?courseId=" + id, undefined, 400, 200);
-  await request("general chat empty body", "POST", "/chat", undefined, 201);
-  await request("course chat", "POST", "/chat", {courseContext: {experimentId: id, courseId: id, pageId: id}}, 201);
-  await request("existing course chat", "POST", "/chat", {courseContext: {experimentId: id, courseId: id, pageId: id}}, 200);
+  const courseChat = {courseContext: {experimentId: id, courseId: id, pageId: id}};
+  for (const [name, body, status] of [
+    ["general chat without body", undefined, 201],
+    ["general chat with empty object", {}, 201],
+    ["new course chat", courseChat, 201],
+    ["existing course chat", courseChat, 200],
+  ]) {
+    const response = await request(name, "POST", "/chat", body, status);
+    assert.ok(chatResult(await response.json()), name + ": " + ajv.errorsText(chatResult.errors));
+  }
   await request("legacy status", "PUT", "/courses/" + id + "/status", {status: "PUBLISHED"}, 200, 200, false);
   const failed = await request("chat unavailable", "POST", "/chat/" + id, {content: "test", preset: "ignored-for-course"}, 503);
   assert.equal(failed.headers.get("content-type").split(";")[0], "application/problem+json");

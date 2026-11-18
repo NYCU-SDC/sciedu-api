@@ -30,7 +30,9 @@ Editor preview uses a local frontend controller without real Chat, submission or
 - Clients generate Page/Block/node UUIDs and the server preserves them. Reject duplicates across the document, IDs taken from another course/page and reuse after persisted deletion. Cross-page copies and restoration after persisted deletion need new IDs.
 - Each resource Block has exactly one same-page node of the matching resource type. TEXT/MEDIA required is false; question input matches Question.type. Question Block order matches depth-first question-node order.
 - Answer references target a preceding page in the same course using pageId plus questionBlockId, not a display number or questionId. Reordering/deletion must repair references in the same snapshot or return 422.
-- Reading groups cannot nest. Image/text cards require at least one text and one image; CCM also supports text plus simulation. Children reject layout; free-grid top-level nodes require it; fixed-template nodes reject dimensions.
+- Each page sets `layout.reading` to `split` or `stacked` and `layout.questions` to `row` or `column`. These two choices are independent of each other and of the chat profile.
+- A nonempty page starts with exactly one `reading-group`, followed by at most one `answer-reference` and then zero or more `question` nodes. A reading group requires at least one text child and can include images and simulations. Text-only cards are valid. Groups cannot nest and nodes do not carry layout dimensions. Only an empty DRAFT page may temporarily have no nodes.
+- The server validates node order, reading-group contents and the maximum of three questions in `row` layout. Template violations return HTTP 422 with type `urn:sciedu:problem:INVALID_TEMPLATE`. The frontend switches the page to `column` when adding a fourth question to a row.
 - contextTextIds contains authorized, FK-protected context-only TEXT resources, without a visible body node or a special order=200 convention.
 - Preserve preview/previewLabel for static teaching pages. preview=true pages cannot contain simulations. This is distinct from local editor preview.
 - Lengths count Unicode code points. Limits: 500 pages; 1,000 Blocks, 1,000 total nodes including children and 100 contextTextIds per page; 5 MiB request JSON and 20 MiB hydrated resource text. Return 413 without truncation.
@@ -41,6 +43,7 @@ Runnable examples: [empty/general/SciArg/CCM requests](examples/material-editor.
 
 | Operation | Change |
 | --- | --- |
+| GET `/courses` | Each management list item includes required `editable` and `editBlockedReason` using the same usage evidence as editor GET. Compute these for the current results page without hydrating editor resources |
 | POST `/courses`, `/content/text`, `/content/media`, `/questions` | Require Idempotency-Key and replay the original resource. Course creation returns revision=1. Coordinate the new header requirement with existing clients |
 | GET `/courses/{id}`, `/courses/{courseId}/pages`, `/pages/{id}` | Add optional revision/presentation. Only persisted v2 returns presentation; editor GET never switches the student format. Page.revision is the containing Course revision |
 | PUT `/courses/{id}/status` | v2 requires expectedRevision and Idempotency-Key. Legacy bodies and absent headers remain accepted. Backend enforces conditional requirements |
@@ -48,7 +51,7 @@ Runnable examples: [empty/general/SciArg/CCM requests](examples/material-editor.
 | Content/Question reads and mutations | Enforce student resource reachability and shared-resource protection. Use copy-on-write for v2/protected references. Formal answer/grading contracts are unchanged |
 | GET `/experiments/{id}/courses` | Management may read the original course.preset after completion/archival; unreliable history is LEGACY_UNCONFIRMED. Preserve existing student access and omit management-only preset data |
 | Experiment status and course assignment mutations | First ACTIVE permanently freezes course content/preset and associations, including later status rollback/completion/archival |
-| POST `/chat` | Optional body. General chats retain 201 `{chatID}`; courseContext returns 201 `{chatId}` for new bindings or 200 `{chatId}` for existing bindings |
+| POST `/chat` | Empty body or `{}` creates a general chat. General and new course chats return 201 `{chatId}`; existing course bindings return 200 `{chatId}` |
 | POST `/chat/{chatId}` | Retain general-chat client preset behavior. Bound course chats resolve their course preset, ignore client overrides and enforce the acceptance-time read-only boundary |
 | Chat history/SSE | Add optional Message.errorCode. Preserve origin/main Message.parts/characters/agentRuns, typed StreamEvent, required delta.index and part_end.part. The existing eight event types and unnamed frames are unchanged |
 
@@ -62,7 +65,11 @@ Authorize first, then look up successful actor+method+resource-path+Idempotency-
 
 A course used by any formally started experiment permanently retains its content and preset. Published courses can be edited in place only if every referencing experiment has never started; enforce publication completeness and retain PUBLISHED. Unconfirmed legacy usage is protected and can be copied instead. Do not expose internal activation/usage timestamps, fabricate historical times or treat NULL as proof of no prior use.
 
+Both management list items and editor documents return `editable: true` with a null reason for confirmed never-used courses, or `editable: false` with `FORMALLY_USED` or `LEGACY_USAGE_UNCONFIRMED`. Batch-compute list editability for the paginated IDs. Re-evaluate editability under the Course lock before writes.
+
 Copies may use protected sources. Remap Page/Block/node/Question/option IDs and internal references, preserve profile/appearance/preset, and share immutable TEXT/MEDIA where appropriate. Do not copy student data, experiment associations or chats. Return a warning when correct answers are not copied.
+
+Editor GET projects legacy data without writing to the database. Wrap SciArg's leading reading nodes in one card with `split` and `row`, and use `stacked` and `column` for CCM. Preserve Page/Block IDs and derive stable node IDs. Write v2 only on a successful save or copy. Verify the conversion against production fixtures before rollout, including SciArg pages with more than three questions. A page that cannot be converted losslessly returns 422 and requires an explicit layout decision before migration.
 
 ## Presets and publication
 
@@ -79,6 +86,8 @@ Media multipart retains content and adds optional purpose=material-image; omissi
 Reads retain session/CORS checks. Images return inline disposition, correct MIME/Length and nosniff. Editor resources exclude storage paths, bytes, correct answers and student submissions. Coordinate staged media storage with operation records so retries return the same resource ID; backend cleanup handles failures. Wait at least seven days before collecting orphans and scan PageBlock/context/unfinished-operation references. Course deletion must not immediately cascade into resource deletion.
 
 ## Bound course chats
+
+The general-chat creation response renames `chatID` to `chatId`. For a staggered rollout, deploy frontend readers that accept `chatId ?? chatID` before deploying the backend response change. Remove the fallback after the rollout.
 
 A binding is unique by user+experiment+course+page. GET lookup never writes. Chat and binding creation commit together; racing creators receive the same ID without orphan chats. Look up on page entry and create only before the first message. Do not move old unbound conversations into new bound chats.
 
