@@ -30,6 +30,12 @@ importers:
       '@typespec/versioning':
         specifier: ^0.74.0
         version: 0.74.0(@typespec/compiler@1.6.0(@types/node@24.10.1))
+      ajv:
+        specifier: 8.17.1
+        version: 8.17.1
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.17.1)
       http-server:
         specifier: ^14.1.1
         version: 14.1.1

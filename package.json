@@ -10,6 +10,7 @@
     "build": "pnpm run format && pnpm run compile && pnpm run yaak",
     "format": "tsp format **/*.tsp",
     "compile": "tsp compile .",
+    "check:materials": "pnpm run compile && node scripts/verify-material-editor-contract.mjs",
     "clean": "rm -rf tsp-output yaak",
     "preview": "http-server . -a 127.0.0.1 --port 3000 -c-1",
     "preview:build": "pnpm run build && pnpm run preview",
@@ -23,6 +24,8 @@
     "@typespec/openapi3": "^1.6.0",
     "@typespec/rest": "^0.74.0",
     "@typespec/versioning": "^0.74.0",
+    "ajv": "8.17.1",
+    "ajv-formats": "3.0.1",
     "http-server": "^14.1.1"
   },
   "dependencies": {

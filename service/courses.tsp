@@ -30,13 +30,26 @@ model Course {
   @maxLength(4000)
   description?: string;
 
+  @doc("The single Course document revision. Legacy responses may omit it. New courses and migrated legacy rows start at 1; successful document mutations advance the revision.")
+  revision?: SciEdu.Materials.Revision;
+
+  @doc("Present only after the course has actually been persisted as v2. Omit for legacy data; reading the editor projection must not migrate it.")
+  presentation?: SciEdu.Materials.CoursePresentation;
+
+  @doc("Returned only to ADMIN or EXPERIMENTER, including the persisted selection and current availability. Students cannot choose a course-chat preset through a request.")
+  preset?: SciEdu.Materials.PresetState;
+
   status: CourseStatus;
   createdAt: utcDateTime;
   updatedAt: utcDateTime;
 }
 
+model CourseListItem extends Course {
+  ...SciEdu.Materials.CourseEditability;
+}
+
 model PaginatedCoursesResponse {
-  items: Course[];
+  items: CourseListItem[];
   totalPages: int32;
   totalItems: int32;
   currentPage: int32;
@@ -73,6 +86,9 @@ model UpdateCourseRequest {
 
 model UpdateCourseStatusRequest {
   status: CourseStatus;
+
+  @doc("Required for v2 status writes; optional for legacy requests. A stale revision returns 409.")
+  expectedRevision?: SciEdu.Materials.Revision;
 }
 
 model CourseNotFoundResponse {
@@ -85,16 +101,17 @@ model CourseConflictResponse {
   @body error: Conflict;
 }
 
-// -----------------------------------------------------------------------------
-// Operations
-// -----------------------------------------------------------------------------
+model CourseWriteResult extends Course {
+  revision: SciEdu.Materials.Revision;
+  warnings?: SciEdu.Materials.Warning[];
+}
 
 @tag("Courses")
 @route("/courses")
+@useAuth(SciEdu.Auth.SessionCookieAuth)
 interface Courses {
-  @doc("List courses. Requires EXPERIMENTER or ADMIN.")
+  @doc("List courses for management.\n\nRequires ADMIN or EXPERIMENTER. Returns 200 with standard pagination. Migrated courses expose revision; only persisted v2 courses expose presentation. Preset information is management-only. Each item includes editable and editBlockedReason, computed from the same durable usage evidence as the editor. Compute them for the current page of results without hydrating editor pages or resources. Writes must recheck editability in their transaction. Errors: 400 invalid pagination or filters, 401/403, 500; application/problem+json.")
   @get
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
   list(
     @query @minValue(1) page?: int32 = 1,
 
@@ -114,110 +131,56 @@ interface Courses {
         @statusCode statusCode: 200;
         @body body: PaginatedCoursesResponse;
       }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | ProblemDetail;
+    | SciEdu.Materials.BadRequest
+    | SciEdu.Materials.Unauthenticated
+    | SciEdu.Materials.Denied
+    | SciEdu.Materials.InternalError;
 
-  @doc("Create a DRAFT course. Requires EXPERIMENTER or ADMIN. Course codes must be unique.")
+  @doc("Create a course draft.\n\nPermissions: ADMIN or EXPERIMENTER.\nRequest: required Idempotency-Key and a unique, user-supplied code; do not derive it from the title. Use editor PUT to save the complete v2 document or preset selection.\nResponse: 201 CourseWriteResult with DRAFT status and revision=1. Same-key, same-payload retries return the original resource and 201; retain successful results for at least 24 hours.\nErrors: 400, 401/403, 409 code or key conflict/in-flight request, 500. Authorization and replay ordering follow Materials.IdempotencyHeader.")
   @post
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  create(@body body: CreateCourseRequest):
+  create(
+    ...SciEdu.Materials.IdempotencyHeader,
+    @body body: CreateCourseRequest,
+  ):
     | {
         @statusCode statusCode: 201;
-        @body body: Course;
+        @body body: CourseWriteResult;
       }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | CourseConflictResponse
-    | ProblemDetail;
+    | SciEdu.Materials.BadRequest
+    | SciEdu.Materials.Unauthenticated
+    | SciEdu.Materials.Denied
+    | SciEdu.Materials.ConflictError
+    | SciEdu.Materials.InternalError;
 
-  @doc("Get a course. Students may only access a PUBLISHED course assigned to their current experiment.")
+  @doc("Get a course and its v2 presentation.\n\nPermissions: management roles may read any course status, including original courses and presets referenced by completed or archived experiments. Students still need a PUBLISHED course assigned to their current valid experiment; this does not grant historical material access.\nResponse: 200 Course. Return presentation only for persisted v2; omit it for legacy data. Return preset only to management roles. Existing access rules and query parameters are preserved.\nErrors: 400 invalid UUID, 401/403/404, 500. GET never migrates or writes data.")
   @get
   @route("/{id}")
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  get(@path id: uuid):
-    | {
-        @statusCode statusCode: 200;
-        @body body: Course;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | CourseNotFoundResponse
-    | ProblemDetail;
+  get(@path id: uuid): {
+    @statusCode statusCode: 200;
+    @body body: Course;
+  } | SciEdu.Materials.ReadErrors;
 
-  @doc("Fully update course metadata. Requires EXPERIMENTER or ADMIN. Changes are immediately visible to assigned experiments.")
+  @doc("Update legacy course metadata.\n\nRequires ADMIN or EXPERIMENTER and an editable legacy course. Persisted v2 returns 409 EDITOR_DOCUMENT_REQUIRED and must use editor PUT. Formally used courses or unconfirmed usage history return 409 COURSE_NOT_EDITABLE. Coordinate locks with experiment activation. Returns 200 CourseWriteResult with revision+1. Errors: 400/401/403/404/409/500.")
   @put
   @route("/{id}")
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  update(@path id: uuid, @body body: UpdateCourseRequest):
-    | {
-        @statusCode statusCode: 200;
-        @body body: Course;
-      }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | CourseNotFoundResponse
-    | CourseConflictResponse
-    | ProblemDetail;
+  update(@path id: uuid, @body body: UpdateCourseRequest): {
+    @statusCode statusCode: 200;
+    @body body: CourseWriteResult;
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
 
-  @doc("Update a course lifecycle status. Requires EXPERIMENTER or ADMIN.")
+  @doc("Validate and update course publication status.\n\nPermissions: ADMIN or EXPERIMENTER. This endpoint is an explicit exception to the v2 legacy-mutation restriction. Preserve existing status rules; returning to DRAFT never removes the permanent content/preset lock.\nRequest: v2 requires Idempotency-Key and expectedRevision; legacy retains its existing body and optional header. Status remains DRAFT, PUBLISHED or ARCHIVED.\nPublication: under the same Course lock and transaction, require at least one page, visible content on each page, complete nodes/questions/references, accessible resources and supported profiles/simulations. TEXT questions may lack correct answers; that does not establish automatic grading readiness.\nPreset: any chatEnabled=true page requires a SELECTED preset; all-chat-disabled courses may publish without one. Removed or temporarily unverifiable selected presets produce warnings, preserving their identifiers and allowing publication and later experiment activation.\nResponse: 200 CourseWriteResult with revision+1; do not create experiments or assign students. Authorize before successful-key replay, even if the revision is now stale.\nErrors: 400 missing conditional fields or malformed input, 401/403/404, 409 revision/protection/key conflict, 422 incomplete document or missing preset for chat pages, 500.")
   @put
   @route("/{id}/status")
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  updateStatus(@path id: uuid, @body body: UpdateCourseStatusRequest):
+  updateStatus(
+    @path id: uuid,
+    @header("Idempotency-Key") key?: uuid,
+    @body body: UpdateCourseStatusRequest,
+  ):
     | {
         @statusCode statusCode: 200;
-        @body body: Course;
+        @body body: CourseWriteResult;
       }
-    | {
-        @statusCode statusCode: 400;
-        @body error: ProblemDetail;
-      }
-    | {
-        @statusCode statusCode: 401;
-        @body error: Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: Forbidden;
-      }
-    | CourseNotFoundResponse
-    | CourseConflictResponse
-    | ProblemDetail;
+    | SciEdu.Materials.ReadErrors
+    | SciEdu.Materials.ConflictError
+    | SciEdu.Materials.InvalidDocument;
 }

@@ -284,77 +284,60 @@ model SubmitAnswerRequest {
 @tag("Questions")
 @route("/questions")
 interface Questions {
-  @doc("List all questions")
+  @doc("List authorized questions.\n\nReturns 200 Question[]. Management roles share access; students only see questions reachable from published courses in their current valid experiment. This projection excludes correct answers, submissions and grading data; existing answer-release endpoints retain their rules. Errors: 401/403/500.")
   @get
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  list(): Question[] | ProblemDetail | {
-    @statusCode statusCode: 401;
-    @body error: SciEdu.Unauthorized;
-  };
-
-  @doc("Get details of a single question (including options)")
-  @get
-  @useAuth(SciEdu.Auth.SessionCookieAuth)
-  get(@path id: uuid):
-    | Question
-    | QuestionNotFoundResponse
-    | ProblemDetail
+  list():
     | {
-        @statusCode statusCode: 401;
-        @body error: SciEdu.Unauthorized;
-      };
+        @statusCode statusCode: 200;
+        @body body: Question[];
+      }
+    | SciEdu.Materials.Unauthenticated
+    | SciEdu.Materials.Denied
+    | SciEdu.Materials.InternalError;
 
-  @doc("Create a new question (including options)")
+  @doc("Get an authorized question and its options.\n\nReturns 200 Question after PageBlock-based course reachability checks. Knowing a resource UUID does not grant access. Unknown or invisible questions return 404; other errors: 400/401/403/500. Editor resources use this public projection without correct-answer data.")
+  @get
+  @route("/{id}")
+  @useAuth(SciEdu.Auth.SessionCookieAuth)
+  get(@path id: uuid): {
+    @statusCode statusCode: 200;
+    @body body: Question;
+  } | SciEdu.Materials.ReadErrors;
+
+  @doc("Create an independent question and options.\n\nRequires ADMIN or EXPERIMENTER and Idempotency-Key. Returns 201 Question; retries return the original question and option IDs, retaining successful results for at least 24 hours. CHOICE requires options. Valid TEXT content does not imply a correct answer or grading rubric. Errors: 400/401/403/409/500.")
   @post
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  create(@body body: CreateUpdateQuestionRequest):
+  create(
+    ...SciEdu.Materials.IdempotencyHeader,
+    @body body: CreateUpdateQuestionRequest,
+  ):
     | {
         @statusCode statusCode: 201;
         @body body: Question;
       }
-    | ProblemDetail
-    | {
-        @statusCode statusCode: 401;
-        @body error: SciEdu.Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: SciEdu.Forbidden;
-      };
+    | SciEdu.Materials.BadRequest
+    | SciEdu.Materials.Unauthenticated
+    | SciEdu.Materials.Denied
+    | SciEdu.Materials.ConflictError
+    | SciEdu.Materials.InternalError;
 
-  @doc("Update a question (Full update; replaces existing options)")
+  @doc("Update a question not protected by a course.\n\nRequires ADMIN or EXPERIMENTER. Returns 200 Question. References from v2 or protected courses cause 409: create a new Question and replace block.resourceId in an editor snapshot instead of mutating shared content. Valid legacy mutations must advance the referencing Course revision. Errors: 400/401/403/404/409/500.")
   @put
+  @route("/{id}")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  update(@path id: uuid, @body body: CreateUpdateQuestionRequest):
-    | Question
-    | QuestionNotFoundResponse
-    | ProblemDetail
-    | {
-        @statusCode statusCode: 401;
-        @body error: SciEdu.Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: SciEdu.Forbidden;
-      };
+  update(@path id: uuid, @body body: CreateUpdateQuestionRequest): {
+    @statusCode statusCode: 200;
+    @body body: Question;
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
 
-  @doc("Delete a question")
+  @doc("Delete an unprotected question.\n\nRequires ADMIN or EXPERIMENTER. Returns 204. References from v2 or protected courses, or persisted submissions, cause 409; do not cascade-delete research data. Removing a course block does not delete its Question. Other errors: 400/401/403/404/500.")
   @delete
+  @route("/{id}")
   @useAuth(SciEdu.Auth.SessionCookieAuth)
-  delete(@path id: uuid):
-    | {
-        @statusCode statusCode: 204;
-      }
-    | QuestionNotFoundResponse
-    | ProblemDetail
-    | {
-        @statusCode statusCode: 401;
-        @body error: SciEdu.Unauthorized;
-      }
-    | {
-        @statusCode statusCode: 403;
-        @body error: SciEdu.Forbidden;
-      };
+  delete(@path id: uuid): {
+    @statusCode statusCode: 204;
+  } | SciEdu.Materials.ReadErrors | SciEdu.Materials.ConflictError;
 
   // -----------------------
   // Correct Answer Sub-resource

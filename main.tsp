@@ -13,6 +13,7 @@ import "./service/pages.tsp";
 import "./service/experiments.tsp";
 import "./service/page-visits.tsp";
 import "./service/progress.tsp";
+import "./service/materials.tsp";
 
 using Http;
 using Versioning;
